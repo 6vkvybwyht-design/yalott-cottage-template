@@ -1,0 +1,88 @@
+{% extends "_base.html" %}
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import photo, object_card, price_rows, gallery_grid %}
+{% block title %}{{ obj.name }} · {{ site.full_name }}{% endblock %}
+{% block description %}{{ obj.intro }}{% endblock %}
+{% block og_image %}{{ obj.cover or site.hero_photo }}{% endblock %}
+{% block body_class %}page-object dark-top{% endblock %}
+{% block mobile_price %}<small>від</small> <strong>{{ obj.price_from|uah }}</strong> <small>/ доба</small>{% endblock %}
+
+{% block content %}
+{# ---------- Шапка об'єкта ---------- #}
+<section class="obj-hero">
+  <div class="container obj-hero-grid">
+    <div class="obj-hero-text">
+      <p class="crumbs"><a href="{{ url_for('index') }}">{{ site.name }}</a> <span>/</span> {{ obj.name }}</p>
+      <p class="kicker">{{ icon(obj.icon, 16) }} {{ obj.tagline }}</p>
+      <h1>{{ obj.name }}</h1>
+      <p class="hero-lead">{{ obj.intro }}</p>
+      <ul class="obj-facts obj-facts--lg">
+        <li>{{ icon("users", 18) }} {{ obj.guests_text }}</li>
+        {% for ic, text in obj.facts %}<li>{{ icon(ic, 18) }} {{ text }}</li>{% endfor %}
+      </ul>
+      <div class="hero-actions">
+        <a class="btn btn-dark btn-lg" href="#booking">Забронювати {{ icon("arrow", 18) }}</a>
+        <p class="obj-hero-price">від <strong>{{ obj.price_from|uah }}</strong> / доба</p>
+      </div>
+    </div>
+    <div class="obj-hero-media">{{ photo(obj, obj.cover, eager=True, sizes="(max-width: 900px) 100vw, 45vw") }}</div>
+  </div>
+</section>
+
+{# ---------- Опис і зручності ---------- #}
+<section class="section" id="about">
+  <div class="container desc-grid">
+    <div class="desc-text reveal">
+      <p class="kicker">Опис</p>
+      <h2>Про будинок</h2>
+      {% for p in obj.description %}<p class="{{ 'lead' if loop.first else 'muted' }}">{{ p }}</p>{% endfor %}
+    </div>
+    <aside class="desc-side reveal">
+      <h3>Що є в будинку</h3>
+      <ul class="amenity-list">{% for a in obj.amenities %}<li>{{ icon("check", 16) }} {{ a }}</li>{% endfor %}</ul>
+      <div class="desc-prices">
+        <h3>Ціни за добу</h3>
+        {{ price_rows(obj, periods) }}
+        {% if extras %}<p class="desc-extras">{% for e in extras %}{{ e.name }} — {{ e.price|uah }}{% if not loop.last %} · {% endif %}{% endfor %} за вечір (тільки для гостей садиби).</p>{% endif %}
+      </div>
+    </aside>
+  </div>
+</section>
+
+{# ---------- Галерея: фото з static/img/{{ obj.folder }} підтягуються автоматично ---------- #}
+<section class="section section-stone" id="gallery">
+  <div class="container">
+    <div class="section-head section-head--row">
+      <div>
+        <p class="kicker">Галерея</p>
+        <h2>{{ obj.name }} у фото</h2>
+      </div>
+      {% if not obj.photos %}<p class="muted">Фото з'являться найближчим часом.</p>{% endif %}
+    </div>
+    {% if obj.photos %}
+    {{ gallery_grid(obj.photos) }}
+    {% else %}
+    <div class="gallery">
+        {% for i in range(7) %}
+        <div class="gallery-item{% if i % 7 in [0, 6] %} is-wide{% endif %}">{{ photo(obj, None, label=obj.name ~ " · " ~ (i + 1)) }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+{% include "_booking.html" %}
+
+{# ---------- Інші будинки ---------- #}
+<section class="section section-stone">
+  <div class="container">
+    <div class="section-head">
+      <p class="kicker">Інші будинки садиби</p>
+      <h2>Подивіться також</h2>
+    </div>
+    <div class="objects objects--two">
+      {% for o in objects if o.id != obj.id %}{{ object_card(o) }}{% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

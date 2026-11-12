@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+instance/
+.env
+.DS_Store
+
+# Оригінали фото — лише локально; на сервер ідуть оптимізовані з static/img (tools/process_photos.py)
+photos/original/

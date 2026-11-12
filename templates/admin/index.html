@@ -1,0 +1,93 @@
+{%- set S = url_for('static', filename='') -%}
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <title>Адмінка · {{ site.name }}</title>
+  <link rel="icon" href="{{ S }}favicon.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ S }}css/style.css{{ V }}">
+  <link rel="stylesheet" href="{{ S }}css/admin.css{{ V }}">
+</head>
+<body class="admin">
+
+<header class="abar">
+  <div class="container abar__inner">
+    <a href="{{ url_for('index') }}" class="brand brand-light" title="На сайт" target="_blank" rel="noopener">
+      <img class="abar__logo" src="{{ S }}img/logo-light.png" alt="{{ site.name }}" width="80" height="38">
+      <span class="abar__label">Адмінка</span>
+    </a>
+    <span class="abar__user">{{ admin_name }}</span>
+    <button class="abar__btn" id="refresh" title="Оновити" aria-label="Оновити"><svg class="ico" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg></button>
+    <form method="post" action="{{ url_for('admin.logout') }}" class="abar__form">
+      <input type="hidden" name="csrf" value="{{ csrf_token }}">
+      <button class="abar__btn" title="Вийти" aria-label="Вийти"><svg class="ico" viewBox="0 0 24 24"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg></button>
+    </form>
+  </div>
+</header>
+
+<main class="container amain">
+  <div class="stats" id="stats"></div>
+
+  <div class="atabs" role="tablist">
+    <button class="atab is-active" data-tab-btn="bookings">Бронювання <span class="count" id="cntNew"></span></button>
+    <button class="atab" data-tab-btn="calendar">Зайнятість</button>
+    <button class="atab" data-tab-btn="prices">Ціни</button>
+  </div>
+
+  <!-- БРОНЮВАННЯ -->
+  <section data-panel="bookings" class="apanel">
+    <div class="abox">
+      <div class="abox__head"><h2>Заявки</h2>
+        <div class="abox__filters">
+          <div class="seg" id="bkObject"></div>
+          <select class="sel" id="filter">
+            <option value="active">Активні</option><option value="new">Нові</option><option value="confirmed">Підтверджені</option>
+            <option value="cancelled">Скасовані</option><option value="all">Усі</option>
+          </select>
+        </div>
+      </div>
+      <div class="list" id="list"></div>
+    </div>
+  </section>
+
+  <!-- КАЛЕНДАР -->
+  <section data-panel="calendar" class="apanel" hidden>
+    <div class="agrid">
+      <div class="abox">
+        <div class="abox__head"><h2>Календар</h2><div class="seg" id="calObject"></div></div>
+        <p class="muted">Дата = ніч проживання. Натисніть на дату, щоб побачити, хто живе, або закрити / відкрити ніч для бронювання.</p>
+        <div class="acal" id="acal"></div>
+        <div class="legend" id="calLegend"></div>
+      </div>
+      <div class="abox" id="dayBox">
+        <div class="abox__head"><h2 id="dayTitle">Оберіть дату</h2></div>
+        <div id="dayBody"><p class="muted">Натисніть на дату в календарі.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ЦІНИ -->
+  <section data-panel="prices" class="apanel" hidden>
+    <p class="muted aintro">Ціни окремо для кожного будинку — за весь будинок за добу. «Знижка за тривалість»: ціна за добу, якщо бронювання від N діб (діє найбільший досягнутий поріг). Періоди «за домовленістю» (напр. новорічні свята): сайт не рахує суму, а пише «Уточніть ціну у власника».</p>
+    <div class="price-objs" id="priceObjs"></div>
+    <div class="abox" id="extrasBox"></div>
+    <div class="abox" id="periodsBox"></div>
+    <div class="abox fixed-rules" id="fixedRules"></div>
+  </section>
+
+  <p class="demo-reset" id="tgRow" hidden>Telegram: <b id="tgState"></b> · <button class="linkbtn" id="tgTest">Надіслати тестове сповіщення</button></p>
+</main>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script src="{{ S }}js/pricing.js{{ V }}"></script>
+<script src="{{ S }}js/api.js{{ V }}"></script>
+<script src="{{ S }}js/admin.js{{ V }}"></script>
+</body>
+</html>

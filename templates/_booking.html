@@ -1,0 +1,114 @@
+{% from "_icons.html" import icon %}
+{# Форма бронювання: 1) об'єкт → 2) дати в календарі → 3) гості → автоматична ціна. #}
+<section class="section section-stone" id="booking">
+  <div class="container">
+    <div class="section-head">
+      <p class="kicker">Бронювання</p>
+      <h2>Оберіть будинок і дати</h2>
+      <p class="muted">У кожного будинку свій календар і свої ціни. Вартість — зі знижкою за тривалість, чаном і банею — рахується автоматично.</p>
+    </div>
+
+    <form class="booking" id="booking-form" novalidate>
+      <div class="hp" aria-hidden="true"><label>Сайт <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+
+      <fieldset class="step">
+        <legend><span class="step-n">1</span> Будинок</legend>
+        <div class="obj-pick" role="radiogroup">
+          {% for o in objects %}
+          <label class="obj-opt obj-opt--{{ o.tone }}">
+            <input type="radio" name="objectId" value="{{ o.id }}"{% if (selected and selected.id == o.id) or (not selected and loop.first) %} checked{% endif %}>
+            <span class="obj-opt-icon">{{ icon(o.icon, 26) }}</span>
+            <span class="obj-opt-text"><b>{{ o.name }}</b><small>{{ o.guests_text }} · від {{ o.price_from|uah }} / доба</small></span>
+          </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+
+      <div class="booking-grid">
+        <fieldset class="step card calendar-card">
+          <legend><span class="step-n">2</span> Дати <small id="cal-object"></small></legend>
+          <div class="calendar" id="calendar">
+            <div class="cal-toolbar">
+              <button type="button" class="cal-nav" data-dir="-1" aria-label="Попередній місяць">{{ icon("left", 20) }}</button>
+              <div class="cal-title" aria-live="polite"></div>
+              <button type="button" class="cal-nav" data-dir="1" aria-label="Наступний місяць">{{ icon("right", 20) }}</button>
+            </div>
+            <div class="cal-months"><div class="cal-loading">Завантаження календаря…</div></div>
+            <div class="cal-legend">
+              <span><i class="lg lg-free"></i> вільно</span>
+              <span><i class="lg lg-busy"></i> зайнято</span>
+              <span><i class="lg lg-selected"></i> ваші дати</span>
+              <span><b class="lg-price">4к</b> ціна за добу</span>
+              <span><b class="lg-price">дог.</b> за домовленістю</span>
+            </div>
+            <p class="cal-hint" id="cal-hint" role="status"></p>
+          </div>
+          <div class="form-row two dates-manual">
+            <label class="field"><span>Заїзд</span><input type="date" name="checkIn" id="check_in"></label>
+            <label class="field"><span>Виїзд</span><input type="date" name="checkOut" id="check_out"></label>
+          </div>
+        </fieldset>
+
+        <div class="booking-side">
+          <fieldset class="step card">
+            <legend><span class="step-n">3</span> Гості та контакти</legend>
+            <label class="field"><span>Кількість гостей <em id="guests-note"></em></span><select name="guests" id="guests"></select></label>
+            <div class="extras-pick">
+              <span class="extras-title">Додатково — тільки для гостей садиби</span>
+              {% for e in extras %}
+              <label class="extra-opt"><input type="checkbox" name="extras" value="{{ e.key }}">
+                <span class="extra-icon">{{ icon("hottub" if e.key == "chan" else "flame", 20) }}</span>
+                <span class="extra-text"><b>{{ e.name }}</b><small>за вечір, час необмежений</small></span>
+                <span class="extra-price">+{{ e.price|uah }}</span>
+              </label>
+              {% endfor %}
+              <p class="extras-note">Погодинно — за домовленістю, напишіть у коментарі.</p>
+            </div>
+            <div class="form-row two">
+              <label class="field"><span>Ваше ім'я</span><input type="text" name="name" required maxlength="80" autocomplete="name" placeholder="Олена"></label>
+              <label class="field"><span>Телефон</span><input type="tel" name="phone" required maxlength="32" autocomplete="tel" inputmode="tel" placeholder="+380 __ ___ __ __"></label>
+            </div>
+            <label class="field"><span>Коментар <em>(необов'язково)</em></span>
+              <textarea name="comment" rows="2" maxlength="500" placeholder="Час приїзду, харчування, побажання"></textarea>
+            </label>
+          </fieldset>
+
+          <div class="summary card" id="summary" aria-live="polite">
+            <div class="summary-empty">{{ icon("calendar", 20) }} Оберіть дати, щоб побачити вартість</div>
+            <div class="summary-body" hidden>
+              <p class="summary-unit"></p>
+              <ul class="summary-lines"></ul>
+              <div class="summary-total"><span>Разом</span><strong></strong></div>
+              <div class="summary-prepay"><span>Передоплата {{ C.prepaymentPercent }}% для підтвердження</span><b></b></div>
+            </div>
+          </div>
+
+          <label class="check"><input type="checkbox" name="rules" id="rules-ok"><span>Я ознайомився(-лася) з <a href="#rules">умовами бронювання</a>: передоплата {{ C.prepaymentPercent }}%, заселення о {{ C.checkIn }}, виселення до {{ C.checkOut }}.</span></label>
+          <p class="form-error" id="form-error" role="alert" hidden></p>
+          <button class="btn btn-dark btn-lg btn-block" type="submit">Надіслати заявку</button>
+          <p class="form-note">{{ icon("shield", 16) }} Оплата зараз не потрібна. Ми зателефонуємо й надішлемо реквізити.</p>
+        </div>
+      </div>
+    </form>
+  </div>
+</section>
+
+{# Правила — однакові для всіх будинків (тексти — у site_content.py) #}
+<section class="section" id="rules">
+  <div class="container">
+    <div class="section-head">
+      <p class="kicker">Правила</p>
+      <h2>Умови бронювання та проживання</h2>
+    </div>
+    <ul class="rules">
+      <li class="rule reveal">{{ icon("percent", 22) }}<div><strong>Знижка за тривалість</strong><span>Від 2 діб ціна за добу нижча, для А-фрейму — ще нижча від 5 діб.</span></div></li>
+      <li class="rule reveal">{{ icon("gift", 22) }}<div><strong>Новорічні свята</strong><span>Ціна за домовленістю — уточніть у власника.</span></div></li>
+      <li class="rule reveal">{{ icon("card", 22) }}<div><strong>Передоплата {{ C.prepaymentPercent }}%</strong><span>Бронювання підтверджується після передоплати.</span></div></li>
+      <li class="rule reveal">{{ icon("refresh", 22) }}<div><strong>Перенесення</strong><span>Можливе, якщо попередити не пізніше ніж за {{ C.rescheduleDaysBefore }} днів до заїзду.</span></div></li>
+      <li class="rule reveal">{{ icon("clock", 22) }}<div><strong>Заселення о {{ C.checkIn }}</strong><span>Виселення до {{ C.checkOut }}.</span></div></li>
+      {% for ic, title, text in house_rules %}
+      <li class="rule reveal">{{ icon(ic, 22) }}<div><strong>{{ title }}</strong><span>{{ text }}</span></div></li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>

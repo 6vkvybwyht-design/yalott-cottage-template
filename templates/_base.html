@@ -1,0 +1,114 @@
+{% from "_icons.html" import icon %}
+{%- set S = url_for('static', filename='') -%}
+{%- set home = url_for('index') -%}
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{% block title %}{{ site.full_name }}{% endblock %}</title>
+  <meta name="description" content="{% block description %}{% endblock %}">
+  <meta name="theme-color" content="#f7f5f0">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <meta property="og:title" content="{{ self.title() }}">
+  <meta property="og:description" content="{{ self.description() }}">
+  <meta property="og:image" content="{{ S }}{% block og_image %}{{ site.hero_photo }}{% endblock %}">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="{{ S }}favicon.png" type="image/png">
+  <link rel="apple-touch-icon" href="{{ S }}favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ S }}css/style.css{{ V }}">
+</head>
+<body class="{% block body_class %}{% endblock %}">
+
+<header class="site-header" id="top">
+  <div class="container header-inner">
+    <a class="brand" href="{{ home }}" aria-label="{{ site.full_name }} — на головну">
+      <img class="brand-logo brand-logo--dark" src="{{ S }}img/logo.png" alt="Forest House" width="96" height="46">
+      <img class="brand-logo brand-logo--light" src="{{ S }}img/logo-light.png" alt="" width="96" height="46">
+      <span class="brand-kind">{{ site.kind }}</span>
+    </a>
+    <nav class="nav" id="nav" aria-label="Головне меню">
+      <div class="nav-objects">
+        {% for o in all_objects %}<a href="{{ url_for('object_page', slug=o.slug) }}"{% if selected and selected.id == o.id %} aria-current="page"{% endif %}>{{ o.short }}</a>{% endfor %}
+      </div>
+      <a href="{{ home }}#territory">Територія</a>
+      <a href="{{ home }}#food">Харчування</a>
+      <a href="{{ home }}#prices">Ціни</a>
+      <a href="{{ home }}#contacts">Контакти</a>
+      <a class="nav-phone" href="tel:{{ site.phone_href }}">{{ icon("phone", 15) }} {{ site.phone }}</a>
+      <a class="btn btn-dark btn-sm nav-cta" href="#booking">Забронювати</a>
+    </nav>
+    <a class="header-call" href="tel:{{ site.phone_href }}" aria-label="Подзвонити {{ site.phone }}">{{ icon("phone", 18) }}</a>
+    <button class="nav-toggle" type="button" aria-controls="nav" aria-expanded="false" aria-label="Відкрити меню">{{ icon("menu", 24) }}</button>
+  </div>
+</header>
+
+<main>
+{% block content %}{% endblock %}
+</main>
+
+<footer class="site-footer">
+  <div class="container footer-inner">
+    <div class="footer-brand">
+      <a href="{{ home }}" aria-label="{{ site.full_name }}"><img class="footer-logo" src="{{ S }}img/logo-light.png" alt="Forest House" width="150" height="72"></a>
+      <p>{{ site.full_name }}. {{ site.tagline }}. Бронювання напряму — без комісій.</p>
+      <div class="socials">
+        {% if site.instagram %}<a href="{{ site.instagram_url }}" target="_blank" rel="noopener" aria-label="Instagram @{{ site.instagram }}">{{ icon("instagram", 20) }}</a>{% endif %}
+        {% if site.tiktok %}<a href="{{ site.tiktok_url }}" target="_blank" rel="noopener" aria-label="TikTok @{{ site.tiktok }}">{{ icon("tiktok", 20) }}</a>{% endif %}
+      </div>
+    </div>
+    <div class="footer-col">
+      <h4>Будинки</h4>
+      {% for o in all_objects %}<a href="{{ url_for('object_page', slug=o.slug) }}">{{ o.name }}</a>{% endfor %}
+    </div>
+    <div class="footer-col">
+      <h4>Контакти</h4>
+      <a href="tel:{{ site.phone_href }}">{{ site.phone }}</a>
+      {% if site.instagram %}<a href="{{ site.instagram_url }}" target="_blank" rel="noopener">Instagram @{{ site.instagram }}</a>{% endif %}
+      {% if site.tiktok %}<a href="{{ site.tiktok_url }}" target="_blank" rel="noopener">TikTok @{{ site.tiktok }}</a>{% endif %}
+      <span>{{ site.address }}</span>
+    </div>
+  </div>
+  <div class="container footer-bottom">
+    <span>© {{ current_year }} {{ site.full_name }}</span>
+    <span>Сайт розроблено <a href="{{ site.studio_url }}" target="_blank" rel="noopener">Yalott Studio</a> · <a href="{{ url_for('admin.login') }}">Вхід для власника</a></span>
+  </div>
+</footer>
+
+<div class="mobile-cta">
+  <div>{% block mobile_price %}{% endblock %}</div>
+  <a class="btn btn-dark" href="#booking">Забронювати</a>
+</div>
+
+<div class="lightbox" id="lightbox" hidden>
+  <button class="lightbox-close" type="button" aria-label="Закрити">{{ icon("x", 26) }}</button>
+  <button class="lightbox-nav prev" type="button" aria-label="Попереднє фото">{{ icon("left", 30) }}</button>
+  <figure><img alt=""><figcaption></figcaption></figure>
+  <button class="lightbox-nav next" type="button" aria-label="Наступне фото">{{ icon("right", 30) }}</button>
+</div>
+
+<div class="modal" id="success-modal" role="dialog" aria-modal="true" aria-labelledby="success-title" hidden>
+  <div class="modal-backdrop" data-close></div>
+  <div class="modal-card">
+    <button class="modal-close" type="button" data-close aria-label="Закрити">{{ icon("x", 20) }}</button>
+    <div class="modal-icon">{{ icon("check", 28) }}</div>
+    <h3 id="success-title">Заявку надіслано</h3>
+    <p class="booking-code" id="success-code"></p>
+    <div class="success-body" id="success-body"></div>
+    <ol class="steps">
+      <li><b>Ми зателефонуємо</b><span>і підтвердимо деталі</span></li>
+      <li><b>Передоплата {{ C.prepaymentPercent }}%</b><span>за реквізитами від нас</span></li>
+      <li><b>Бронювання підтверджено</b><span>чекаємо вас о {{ C.checkIn }}</span></li>
+    </ol>
+    <button class="btn btn-dark btn-block" type="button" data-close>Добре</button>
+  </div>
+</div>
+
+<script src="{{ S }}js/pricing.js{{ V }}"></script>
+<script src="{{ S }}js/api.js{{ V }}"></script>
+<script src="{{ S }}js/main.js{{ V }}"></script>
+</body>
+</html>

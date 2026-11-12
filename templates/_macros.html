@@ -1,0 +1,72 @@
+{% from "_icons.html" import icon %}
+
+{# Фото або заглушка в кольорах будинку (якщо папка static/img/objN порожня). #}
+{% macro photo(o, src=None, cls="", label=None, eager=False, sizes="(max-width: 760px) 100vw, 50vw") -%}
+{%- if src -%}
+{%- set t = thumb_for(src) -%}
+<img class="photo {{ cls }}" src="{{ url_for('static', filename=src) }}"
+  {%- if t %} srcset="{{ url_for('static', filename=t) }} 600w, {{ url_for('static', filename=src) }} 1600w" sizes="{{ sizes }}"{% endif %}
+  alt="{{ label or o.name }}"{% if not eager %} loading="lazy"{% endif %} decoding="async">
+{%- else -%}
+<div class="ph ph--{{ o.tone }} {{ cls }}" role="img" aria-label="{{ label or o.name }} — фото незабаром">
+  <span class="ph-icon">{{ icon(o.icon, 44) }}</span>
+  <span class="ph-name">{{ label or o.name }}</span>
+  <span class="ph-note">фото незабаром</span>
+</div>
+{%- endif -%}
+{%- endmacro %}
+
+{% macro object_card(o, big=False) -%}
+{%- set url = url_for('object_page', slug=o.slug) -%}
+<article class="obj-card obj-card--{{ o.tone }}{% if big %} obj-card--big{% endif %} reveal">
+  <a class="obj-media" href="{{ url }}" tabindex="-1" aria-hidden="true">{{ photo(o, o.cover) }}</a>
+  <div class="obj-body">
+    <p class="obj-kicker">{{ icon(o.icon, 16) }} {{ o.tagline }}</p>
+    <h3><a href="{{ url }}">{{ o.name }}</a></h3>
+    {% if big %}<p class="obj-intro">{{ o.intro }}</p>{% endif %}
+    <ul class="obj-facts">
+      <li>{{ icon("users", 16) }} {{ o.guests_text }}</li>
+      {% for ic, text in o.facts[:2] %}<li>{{ icon(ic, 16) }} {{ text }}</li>{% endfor %}
+    </ul>
+    <div class="obj-foot">
+      <p class="obj-price">від <strong>{{ o.price_from|uah }}</strong> / доба</p>
+      <div class="obj-actions">
+        <a class="btn btn-line btn-sm" href="{{ url }}">Детальніше</a>
+        <a class="btn btn-sm {{ 'btn-light' if o.tone == 'black' else 'btn-dark' }}" href="#booking" data-book="{{ o.id }}">Забронювати</a>
+      </div>
+    </div>
+  </div>
+</article>
+{%- endmacro %}
+
+{# Ціни одного будинку: ціна за добу + знижки за тривалість + періоди #}
+{% macro price_rows(o, periods=[]) -%}
+<div class="price-row">
+  <span class="price-label">1 доба</span><strong>{{ o.price|uah }}</strong>
+</div>
+{% for t in o.tiers %}
+<div class="price-row price-row--tier">
+  <span class="price-label">від {{ t.nights }} діб <small>за добу</small></span><strong>{{ t.price|uah }}</strong>
+</div>
+{% endfor %}
+<div class="price-row price-row--muted">
+  <span class="price-label">Гості</span><span>{{ o.guests_text }}</span>
+</div>
+{% set own = periods|selectattr('objectId', 'in', [None, o.id])|list %}
+{% if own %}
+<ul class="price-special">
+  {% for p in own %}<li><span>{{ p.name or 'Особливий період' }} · {{ p.start|udate }}–{{ p.end|udate }}</span><b>{{ p.price|uah if p.price else 'за домовленістю' }}</b></li>{% endfor %}
+</ul>
+{% endif %}
+{%- endmacro %}
+
+{# Галерея: фото з папки (кнопки з лайтбоксом). wide — які за рахунком фото широкі. #}
+{% macro gallery_grid(items, cls="") -%}
+<div class="gallery {{ cls }}">
+  {% for p in items %}
+  <button type="button" class="gallery-item{% if loop.index0 % 7 in [0, 6] %} is-wide{% endif %}" data-full="{{ url_for('static', filename=p.src) }}" data-caption="{{ p.caption }}">
+    <img src="{{ url_for('static', filename=p.thumb or p.src) }}" alt="{{ p.caption }}" loading="lazy" decoding="async">
+  </button>
+  {% endfor %}
+</div>
+{%- endmacro %}

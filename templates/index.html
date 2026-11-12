@@ -1,0 +1,193 @@
+{% extends "_base.html" %}
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import photo, object_card, price_rows, gallery_grid %}
+{% block title %}{{ site.full_name }} — апартаменти, котедж і будинок А-фрейм з чаном і банею{% endblock %}
+{% block description %}{{ description }} Онлайн-бронювання.{% endblock %}
+{% block body_class %}page-home dark-top{% endblock %}
+{% block mobile_price %}<small>від</small> <strong>{{ price_from|uah }}</strong> <small>/ доба</small>{% endblock %}
+
+{% block content %}
+{%- set af = featured -%}
+{# ---------- Банер: акцент на А-фреймі ---------- #}
+{%- set hero_thumb = thumb_for(site.hero_photo) -%}
+<section class="hero">
+  <img class="hero-bg" src="{{ url_for('static', filename=site.hero_photo) }}"
+    {%- if hero_thumb %} srcset="{{ url_for('static', filename=hero_thumb) }} 600w, {{ url_for('static', filename=site.hero_photo) }} 1200w" sizes="100vw"{% endif %}
+    alt="{{ af.name }} узимку ввечері, з увімкненими вогниками" fetchpriority="high" decoding="async">
+  <div class="hero-shade" aria-hidden="true"></div>
+  <div class="container hero-inner">
+    <div class="hero-text">
+      <p class="kicker">{{ icon("tree", 16) }} {{ site.kind }}</p>
+      <h1>{{ site.name }}</h1>
+      <p class="hero-lead">{{ description }}</p>
+      <p class="hero-price">від <strong>{{ price_from|uah }}</strong> / доба</p>
+      <div class="hero-actions">
+        <a class="btn btn-dark btn-lg" href="#booking">Забронювати {{ icon("arrow", 18) }}</a>
+        <a class="btn btn-line btn-lg" href="#objects">Обрати будинок</a>
+      </div>
+      <ul class="hero-objects">
+        {% for o in objects %}
+        <li><a href="{{ url_for('object_page', slug=o.slug) }}"><span class="dot dot--{{ o.tone }}"></span>{{ o.name }}<small>від {{ o.price_from|uah }} / доба</small></a></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  <a class="hero-caption" href="{{ url_for('object_page', slug=af.slug) }}">На фото: {{ af.name }} →</a>
+</section>
+
+{# ---------- Переваги ---------- #}
+<section class="perks-band">
+  <div class="container">
+    <ul class="perks">
+      {% for ic, title, text in perks %}
+      <li class="perk reveal"><span class="t-icon">{{ icon(ic, 22) }}</span><div><strong>{{ title }}</strong><span>{{ text }}</span></div></li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+
+{# ---------- Будинки ---------- #}
+<section class="section" id="objects">
+  <div class="container">
+    <div class="section-head section-head--row">
+      <div>
+        <p class="kicker">Будинки</p>
+        <h2>Три різні будинки — оберіть свій</h2>
+      </div>
+      <p class="muted">{{ about_text[0] }}</p>
+    </div>
+    <div class="objects">
+      {{ object_card(af, big=True) }}
+      {% for o in objects if o.id != af.id %}{{ object_card(o) }}{% endfor %}
+    </div>
+  </div>
+</section>
+
+{# ---------- Територія: фото з static/img/territory ---------- #}
+<section class="section section-stone" id="territory">
+  <div class="container">
+    <div class="split-head">
+      <div class="reveal">
+        <p class="kicker">Територія</p>
+        <h2>{{ territory.title }}</h2>
+        <p class="lead">{{ territory.text }}</p>
+      </div>
+      <ul class="extras-cards reveal">
+        {% for e in extras %}
+        <li class="extra-card">
+          <span class="t-icon">{{ icon("hottub" if e.key == "chan" else "flame", 22) }}</span>
+          <div><strong>{{ e.name }}</strong><span>за вечір, час необмежений</span></div>
+          <b>{{ e.price|uah }}</b>
+        </li>
+        {% endfor %}
+        {% for ic, title, text in territory.points %}
+        <li class="extra-card extra-card--muted">
+          <span class="t-icon">{{ icon(ic, 22) }}</span>
+          <div><strong>{{ title }}</strong><span>{{ text }}</span></div>
+        </li>
+        {% endfor %}
+        <li class="extras-hint">{{ icon("lock", 16) }} Чан і баня — тільки для гостей садиби. Погодинно — за домовленістю.</li>
+      </ul>
+    </div>
+    {{ gallery_grid(territory.photos) }}
+  </div>
+</section>
+
+{# ---------- Харчування: фото з static/img/food ---------- #}
+<section class="section" id="food">
+  <div class="container">
+    <div class="section-head section-head--row">
+      <div>
+        <p class="kicker">Харчування</p>
+        <h2>{{ food.title }}</h2>
+      </div>
+      <p class="muted">{{ food.text }}</p>
+    </div>
+    {{ gallery_grid(food.photos, "gallery--food") }}
+  </div>
+</section>
+
+{# ---------- Ціни ---------- #}
+<section class="section section-stone" id="prices">
+  <div class="container">
+    <div class="section-head">
+      <p class="kicker">Ціни</p>
+      <h2>Вартість за добу</h2>
+      <p class="muted">Ціна за весь будинок. Що довше відпочинок — то нижча ціна за добу. Передоплата {{ C.prepaymentPercent }}%.</p>
+    </div>
+    <div class="price-cards">
+      {% for o in objects %}
+      <article class="price-card price-card--{{ o.tone }} reveal">
+        <header><span class="price-icon">{{ icon(o.icon, 24) }}</span><h3><a href="{{ url_for('object_page', slug=o.slug) }}">{{ o.name }}</a></h3></header>
+        {{ price_rows(o, periods) }}
+        <a class="btn btn-line btn-sm btn-block" href="#booking" data-book="{{ o.id }}">Перевірити дати</a>
+      </article>
+      {% endfor %}
+    </div>
+    {% if extras %}
+    <p class="prices-extras">{{ icon("hottub", 18) }} {% for e in extras %}{{ e.name }} — {{ e.price|uah }} за вечір{% if not loop.last %} · {% endif %}{% endfor %}. Додаються до суми, якщо позначити їх у формі бронювання.</p>
+    {% endif %}
+  </div>
+</section>
+
+{% include "_booking.html" %}
+
+{# ---------- Відгуки ---------- #}
+<section class="section section-stone" id="reviews">
+  <div class="container">
+    <div class="section-head">
+      <p class="kicker">Відгуки гостей</p>
+      <h2>Що кажуть гості</h2>
+    </div>
+    <div class="reviews">
+      {% for text, author, meta in reviews %}
+      <article class="review reveal">
+        <span class="review-quote">{{ icon("quote", 26) }}</span>
+        <div class="review-stars" aria-label="5 зірок">{% for _ in range(5) %}{{ icon("star", 15) }}{% endfor %}</div>
+        <p class="review-text">{{ text }}</p>
+        <p class="review-author"><b>{{ author }}</b><small>{{ meta }}</small></p>
+      </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{# ---------- Поруч ---------- #}
+<section class="section" id="nearby">
+  <div class="container">
+    <div class="section-head">
+      <p class="kicker">Що поруч</p>
+      <h2>Навколо садиби</h2>
+    </div>
+    <ul class="nearby">
+      {% for ic, title, text in nearby %}
+      <li class="near reveal"><span class="t-icon">{{ icon(ic, 22) }}</span><div><strong>{{ title }}</strong><span>{{ text }}</span></div></li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+
+{# ---------- Контакти ---------- #}
+<section class="section section-stone" id="contacts">
+  <div class="container">
+    <div class="section-head">
+      <p class="kicker">Контакти</p>
+      <h2>Телефонуйте або пишіть</h2>
+    </div>
+    <div class="contacts-grid">
+      <div class="contact-list">
+        <a class="contact-item" href="tel:{{ site.phone_href }}"><span class="t-icon">{{ icon("phone", 20) }}</span><span><small>Телефон</small>{{ site.phone }}</span></a>
+        {% if site.viber_href %}<a class="contact-item" href="{{ site.viber_href }}"><span class="t-icon">{{ icon("message", 20) }}</span><span><small>Viber</small>{{ site.phone }}</span></a>{% endif %}
+        {% if site.telegram %}<a class="contact-item" href="https://t.me/{{ site.telegram }}" target="_blank" rel="noopener"><span class="t-icon">{{ icon("telegram", 20) }}</span><span><small>Telegram</small>@{{ site.telegram }}</span></a>{% endif %}
+        {% if site.instagram %}<a class="contact-item" href="{{ site.instagram_url }}" target="_blank" rel="noopener"><span class="t-icon">{{ icon("instagram", 20) }}</span><span><small>Instagram</small>@{{ site.instagram }}</span></a>{% endif %}
+        {% if site.tiktok %}<a class="contact-item" href="{{ site.tiktok_url }}" target="_blank" rel="noopener"><span class="t-icon">{{ icon("tiktok", 20) }}</span><span><small>TikTok</small>@{{ site.tiktok }}</span></a>{% endif %}
+        {% if site.email %}<a class="contact-item" href="mailto:{{ site.email }}"><span class="t-icon">{{ icon("mail", 20) }}</span><span><small>Пошта</small>{{ site.email }}</span></a>{% endif %}
+        <a class="contact-item" href="https://www.google.com/maps/search/?api=1&query={{ site.map_query|urlencode }}" target="_blank" rel="noopener"><span class="t-icon">{{ icon("pin", 20) }}</span><span><small>Адреса</small>{{ site.address }}<em>{{ site.address_note }}</em></span></a>
+      </div>
+      <div class="map-wrap">
+        <iframe title="Карта: {{ site.name }}" src="https://www.google.com/maps?q={{ site.map_query|urlencode }}&z=12&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
