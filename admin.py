@@ -1,7 +1,8 @@
-"""Адмінка власника (/admin): заявки по кожному будинку, календар зайнятості всіх трьох
-із закриттям діб, ціни окремо для кожного будинку (ціна за добу + знижки за тривалість),
-періоди «ціна за домовленістю», ціни чану й бані, тестове сповіщення в Telegram."""
+"""Адмінка власника (/admin): заявки по кожному об'єкту, календар зайнятості із закриттям ночей,
+ціни й параметри кожного об'єкта (ціна за ніч, доплата за гостей, мінімум ночей, знижки за тривалість),
+сезони, ціни додаткових послуг, тестове сповіщення в Telegram."""
 
+import html
 import re
 import secrets
 import time
@@ -13,8 +14,6 @@ from werkzeug.security import check_password_hash
 
 import database as db_
 import notifications
-import pricing as P
-import site_content
 
 bp = Blueprint("admin", __name__, url_prefix="/admin")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -105,9 +104,10 @@ def status():
 
 
 def _object_ids(value):
+    known = db_.objects(db_.get_db())
     if not isinstance(value, list) or not value:
         return None
-    if not all(isinstance(o, int) and not isinstance(o, bool) and o in P.OBJECT_IDS for o in value):
+    if not all(isinstance(o, int) and not isinstance(o, bool) and o in known for o in value):
         return None
     return value
 
@@ -121,19 +121,36 @@ def block_nights():
         return jsonify(ok=False, error="Некоректні дати"), 400
     if objects is None:
         return jsonify(ok=False, error="Оберіть об'єкт"), 400
-    db_.block_nights(db_.get_db(), dates, objects, bool(body.get("blocked")))
+    count = body.get("count")
+    if count is not None and (not isinstance(count, int) or isinstance(count, bool) or not 0 <= count <= 50):
+        return jsonify(ok=False, error="Некоректна кількість"), 400
+    db_.block_nights(db_.get_db(), dates, objects, bool(body.get("blocked")), count)
     return jsonify(ok=True)
 
 
-def _price(value, required=True):
+def _price(value, required=True, low=1):
+    """Будь-яке ціле число в гривнях: 4500, 20000, 12345. Крок не обмежується."""
     if value in (None, "") and not required:
         return None
     try:
-        n = int(value)
+        n = int(str(value).replace(" ", "").replace("\u00a0", ""))
     except (TypeError, ValueError):
-        raise db_.BookingError("Ціна має бути числом")
-    if not 0 < n <= 1_000_000:
+        raise db_.BookingError("Ціна має бути цілим числом")
+    if not low <= n <= 1_000_000:
         raise db_.BookingError("Некоректна ціна")
+    return n
+
+
+def _number(body, key, low, high, label):
+    """Необов'язкове ціле поле (гості, одиниці, мінімум ночей): None, якщо його не надіслали."""
+    if body.get(key) in (None, ""):
+        return None
+    try:
+        n = int(body[key])
+    except (TypeError, ValueError):
+        raise db_.BookingError(f"{label}: потрібне ціле число")
+    if not low <= n <= high:
+        raise db_.BookingError(f"{label}: від {low} до {high}")
     return n
 
 
@@ -142,7 +159,7 @@ def _object_id(value):
         n = int(value)
     except (TypeError, ValueError):
         n = 0
-    if n not in P.OBJECT_IDS:
+    if n not in db_.objects(db_.get_db()):
         raise db_.BookingError("Оберіть об'єкт")
     return n
 
@@ -150,7 +167,8 @@ def _object_id(value):
 @bp.post("/api/object-prices")
 @api_required
 def object_prices():
-    """Ціна будинку за добу й знижки за тривалість: tiers = [{"nights": 2, "price": 2200}, ...]."""
+    """Ціна об'єкта за ніч, доплата за гостей, мінімум ночей, знижки за тривалість:
+    tiers = [{"nights": 2, "price": 2200}, ...]."""
     body = request.get_json(silent=True) or {}
     raw = body.get("tiers")
     try:
@@ -164,9 +182,17 @@ def object_prices():
             try:
                 nights = int(t.get("nights"))
             except (TypeError, ValueError):
-                raise db_.BookingError("Поріг знижки — число діб")
+                raise db_.BookingError("Поріг знижки — число ночей")
             tiers.append({"nights": nights, "price": _price(t.get("price"))})
-        db_.save_object_prices(db_.get_db(), object_id, _price(body.get("price")), tiers)
+        data = {"price": _price(body.get("price")), "tiers": tiers}
+        if body.get("extraGuestPrice") not in (None, ""):
+            data["extraGuestPrice"] = _price(body.get("extraGuestPrice"), low=0)
+        for key, low, high, label in (("minNights", 1, 30, "Мінімум ночей"), ("baseGuests", 1, 50, "Гостей у ціні"),
+                                      ("maxGuests", 1, 50, "Максимум гостей"), ("units", 1, 50, "Кількість одиниць")):
+            n = _number(body, key, low, high, label)
+            if n is not None:
+                data[key] = n
+        db_.save_object_settings(db_.get_db(), object_id, data)
     except db_.BookingError as e:
         return _error(e)
     return jsonify(ok=True)
@@ -177,7 +203,12 @@ def object_prices():
 def extra_price():
     body = request.get_json(silent=True) or {}
     try:
-        db_.save_extra_price(db_.get_db(), str(body.get("key", "")), _price(body.get("price")))
+        tiers = body.get("guestPrices")
+        if tiers is not None:
+            if not isinstance(tiers, list) or len(tiers) > 8 or not all(isinstance(t, dict) for t in tiers):
+                raise db_.BookingError("Некоректні ціни за кількістю гостей")
+            tiers = [{"upTo": _number(t, "upTo", 1, 50, "Гостей") or 0, "price": _price(t.get("price"))} for t in tiers]
+        db_.save_extra_price(db_.get_db(), str(body.get("key", "")), _price(body.get("price")), tiers)
     except db_.BookingError as e:
         return _error(e)
     return jsonify(ok=True)
@@ -186,14 +217,14 @@ def extra_price():
 @bp.post("/api/period")
 @api_required
 def period_save():
-    """Період (свята): ціна за добу або «за домовленістю» (onRequest), для одного будинку чи всіх."""
+    """Сезон (свята): ціна за ніч або «за домовленістю» (onRequest), для одного об'єкта чи всіх."""
     body = request.get_json(silent=True) or {}
     try:
         start, end = body.get("start"), body.get("end")
         if not (isinstance(start, str) and DATE_RE.match(start) and isinstance(end, str) and DATE_RE.match(end)):
             raise db_.BookingError("Вкажіть дати початку й кінця")
         if end < start:
-            raise db_.BookingError("Кінець періоду раніше за початок")
+            raise db_.BookingError("Кінець сезону раніше за початок")
         object_id = None if body.get("objectId") in (None, "", "all", 0) else _object_id(body.get("objectId"))
         price = None if body.get("onRequest") else _price(body.get("price"))
         data = {"objectId": object_id, "name": str(body.get("name") or "").strip()[:60],
@@ -204,7 +235,7 @@ def period_save():
     except db_.BookingError as e:
         return _error(e)
     except (TypeError, ValueError):
-        return jsonify(ok=False, error="Некоректний період"), 400
+        return jsonify(ok=False, error="Некоректний сезон"), 400
     return jsonify(ok=True)
 
 
@@ -215,7 +246,7 @@ def period_delete():
     try:
         db_.delete_period(db_.get_db(), int(body.get("id")))
     except (TypeError, ValueError):
-        return jsonify(ok=False, error="Некоректний період"), 400
+        return jsonify(ok=False, error="Некоректний сезон"), 400
     return jsonify(ok=True)
 
 
@@ -223,5 +254,5 @@ def period_delete():
 @api_required
 def telegram_test():
     ok, error = notifications.send_message(
-        f"✅ <b>{site_content.SITE['name']}</b>: тестове сповіщення. Telegram налаштовано правильно.")
+        f"✅ <b>{html.escape(db_.site().brand['name'])}</b>: тестове сповіщення. Telegram налаштовано правильно.")
     return (jsonify(ok=True), 200) if ok else (jsonify(ok=False, error=error), 502)

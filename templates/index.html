@@ -1,192 +1,239 @@
 {% extends "_base.html" %}
 {% from "_icons.html" import icon %}
-{% from "_macros.html" import photo, object_card, price_rows, gallery_grid %}
-{% block title %}{{ site.full_name }} — апартаменти, котедж і будинок А-фрейм з чаном і банею{% endblock %}
-{% block description %}{{ description }} Онлайн-бронювання.{% endblock %}
-{% block body_class %}page-home dark-top{% endblock %}
-{% block mobile_price %}<small>від</small> <strong>{{ price_from|uah }}</strong> <small>/ доба</small>{% endblock %}
+{% from "_macros.html" import photo, object_card, price_rows, gallery_grid, extra_price %}
+{% block body_class %}page-home{% endblock %}
+{% block mobile_price %}<small>від</small> <strong>{{ price_from|uah }}</strong> <small>/ ніч</small>{% endblock %}
+{% block head %}
+<script type="application/ld+json">{{ {
+  "@context": "https://schema.org", "@type": "LodgingBusiness", "name": brand.full_name,
+  "description": site.seo.description, "telephone": contacts.phone_href,
+  "address": {"@type": "PostalAddress", "streetAddress": contacts.address, "addressRegion": contacts.region, "addressCountry": "UA"},
+  "priceRange": "від " ~ price_from ~ " грн"
+}|tojson }}</script>
+{% endblock %}
 
 {% block content %}
-{%- set af = featured -%}
-{# ---------- Банер: акцент на А-фреймі ---------- #}
-{%- set hero_thumb = thumb_for(site.hero_photo) -%}
-<section class="hero">
-  <img class="hero-bg" src="{{ url_for('static', filename=site.hero_photo) }}"
-    {%- if hero_thumb %} srcset="{{ url_for('static', filename=hero_thumb) }} 600w, {{ url_for('static', filename=site.hero_photo) }} 1200w" sizes="100vw"{% endif %}
-    alt="{{ af.name }} узимку ввечері, з увімкненими вогниками" fetchpriority="high" decoding="async">
+{# ---------- Банер: фото з media/hero/ або обкладинка головного об'єкта; без фото — фон теми ---------- #}
+{%- set hero_thumb = thumb_for(hero) -%}
+<section class="hero{% if not hero %} hero--plain{% endif %}">
+  {% if hero %}
+  <img class="hero-bg" src="{{ url_for('static', filename=hero) }}"
+    {%- if hero_thumb %} srcset="{{ url_for('static', filename=hero_thumb) }} 600w, {{ url_for('static', filename=hero) }} 1600w" sizes="100vw"{% endif %}
+    alt="{{ brand.full_name }}" fetchpriority="high" decoding="async">
+  {% endif %}
   <div class="hero-shade" aria-hidden="true"></div>
   <div class="container hero-inner">
     <div class="hero-text">
-      <p class="kicker">{{ icon("tree", 16) }} {{ site.kind }}</p>
-      <h1>{{ site.name }}</h1>
-      <p class="hero-lead">{{ description }}</p>
-      <p class="hero-price">від <strong>{{ price_from|uah }}</strong> / доба</p>
+      {% if brand.kind or contacts.region %}<p class="kicker">{{ icon("mountain", 16) }} {{ brand.kind or contacts.region }}</p>{% endif %}
+      <h1>{{ brand.name }}</h1>
+      <p class="hero-lead">{{ brand.description or brand.tagline }}</p>
+      <p class="hero-price">від <strong>{{ price_from|uah }}</strong> / ніч</p>
       <div class="hero-actions">
-        <a class="btn btn-dark btn-lg" href="#booking">Забронювати {{ icon("arrow", 18) }}</a>
-        <a class="btn btn-line btn-lg" href="#objects">Обрати будинок</a>
+        <a class="btn btn-primary btn-lg" href="#booking">Забронювати {{ icon("arrow", 18) }}</a>
+        <a class="btn btn-line btn-lg" href="#objects">{{ "Дивитись варіанти" if objects|length > 1 else "Детальніше" }}</a>
       </div>
+      {% if objects|length > 1 %}
       <ul class="hero-objects">
         {% for o in objects %}
-        <li><a href="{{ url_for('object_page', slug=o.slug) }}"><span class="dot dot--{{ o.tone }}"></span>{{ o.name }}<small>від {{ o.price_from|uah }} / доба</small></a></li>
+        <li><a href="{{ url_for('object_page', slug=o.slug) }}"><span class="dot"></span>{{ o.name }}{% if o.units > 1 %} <em>× {{ o.units }}</em>{% endif %}<small>від {{ o.price_from|uah }} / ніч</small></a></li>
         {% endfor %}
       </ul>
+      {% endif %}
     </div>
   </div>
-  <a class="hero-caption" href="{{ url_for('object_page', slug=af.slug) }}">На фото: {{ af.name }} →</a>
 </section>
 
 {# ---------- Переваги ---------- #}
+{% if sections.about and site.perks %}
 <section class="perks-band">
   <div class="container">
     <ul class="perks">
-      {% for ic, title, text in perks %}
-      <li class="perk reveal"><span class="t-icon">{{ icon(ic, 22) }}</span><div><strong>{{ title }}</strong><span>{{ text }}</span></div></li>
+      {% for p in site.perks %}
+      <li class="perk reveal"><span class="t-icon">{{ icon(p.icon, 22) }}</span><div><strong>{{ p.title }}</strong><span>{{ p.text }}</span></div></li>
       {% endfor %}
     </ul>
   </div>
 </section>
+{% endif %}
 
-{# ---------- Будинки ---------- #}
+{# ---------- Об'єкти ---------- #}
 <section class="section" id="objects">
   <div class="container">
     <div class="section-head section-head--row">
       <div>
-        <p class="kicker">Будинки</p>
-        <h2>Три різні будинки — оберіть свій</h2>
+        <p class="kicker">Проживання</p>
+        <h2>{{ site.about.title or ("Оберіть, де зупинитись" if objects|length > 1 else objects[0].name) }}</h2>
       </div>
-      <p class="muted">{{ about_text[0] }}</p>
+      <p class="muted">{{ site.about.text[0] if site.about.text else "У кожного варіанту свій календар і своя ціна. Бронювання напряму — без комісій і посередників." }}</p>
     </div>
-    <div class="objects">
-      {{ object_card(af, big=True) }}
-      {% for o in objects if o.id != af.id %}{{ object_card(o) }}{% endfor %}
+    {# Великий блок — лише коли об'єктів 3+ (або один); два об'єкти стоять поруч як рівні. #}
+    {%- set big = featured if objects|length >= 3 else None -%}
+    <div class="objects objects--{{ [objects|length - (1 if big else 0), 3]|min }}">
+      {% if big %}{{ object_card(big, big=True) }}{% endif %}
+      {% for o in objects if not big or o.id != big.id %}{{ object_card(o, big=(objects|length == 1)) }}{% endfor %}
     </div>
   </div>
 </section>
 
-{# ---------- Територія: фото з static/img/territory ---------- #}
-<section class="section section-stone" id="territory">
+{# ---------- Додаткові послуги ---------- #}
+{% if sections.extras and extras %}
+<section class="section section-alt" id="extras">
   <div class="container">
-    <div class="split-head">
-      <div class="reveal">
-        <p class="kicker">Територія</p>
-        <h2>{{ territory.title }}</h2>
-        <p class="lead">{{ territory.text }}</p>
-      </div>
-      <ul class="extras-cards reveal">
-        {% for e in extras %}
-        <li class="extra-card">
-          <span class="t-icon">{{ icon("hottub" if e.key == "chan" else "flame", 22) }}</span>
-          <div><strong>{{ e.name }}</strong><span>за вечір, час необмежений</span></div>
-          <b>{{ e.price|uah }}</b>
-        </li>
-        {% endfor %}
-        {% for ic, title, text in territory.points %}
-        <li class="extra-card extra-card--muted">
-          <span class="t-icon">{{ icon(ic, 22) }}</span>
-          <div><strong>{{ title }}</strong><span>{{ text }}</span></div>
-        </li>
-        {% endfor %}
-        <li class="extras-hint">{{ icon("lock", 16) }} Чан і баня — тільки для гостей садиби. Погодинно — за домовленістю.</li>
-      </ul>
+    <div class="section-head">
+      <p class="kicker">Послуги</p>
+      <h2>Додайте до відпочинку</h2>
+      <p class="muted">Позначте потрібне у формі бронювання — сума порахується автоматично.</p>
     </div>
-    {{ gallery_grid(territory.photos) }}
+    <div class="services services--{{ [extras|length, 3]|min }}">
+      {% for e in extras %}
+      <article class="service reveal">
+        <div class="service-media">
+          {% if e.photo_src %}<img class="photo" src="{{ url_for('static', filename=thumb_for(e.photo_src) or e.photo_src) }}" alt="{{ e.name }}" loading="lazy" decoding="async">
+          {% else %}<div class="ph ph--t{{ loop.index0 % 3 + 1 }} ph--sm" role="img" aria-label="{{ e.name }}"><span class="ph-icon">{{ icon(e.icon, 34) }}</span></div>{% endif %}
+        </div>
+        <div class="service-body">
+          <h3>{{ e.name }}</h3>
+          {% if e.description %}<p class="muted">{{ e.description }}</p>{% endif %}
+          <div class="service-price">{{ extra_price(e) }}<small>{{ e.unitLabel }}</small></div>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
   </div>
 </section>
+{% endif %}
 
-{# ---------- Харчування: фото з static/img/food ---------- #}
-<section class="section" id="food">
+{# ---------- Галерея: фото з media/gallery/ ---------- #}
+{% if sections.gallery and gallery_photos %}
+<section class="section" id="gallery">
   <div class="container">
     <div class="section-head section-head--row">
       <div>
-        <p class="kicker">Харчування</p>
-        <h2>{{ food.title }}</h2>
+        <p class="kicker">Галерея</p>
+        <h2>{{ site.gallery.title }}</h2>
       </div>
-      <p class="muted">{{ food.text }}</p>
+      {% if site.gallery.text %}<p class="muted">{{ site.gallery.text }}</p>{% endif %}
     </div>
-    {{ gallery_grid(food.photos, "gallery--food") }}
+    {{ gallery_grid(gallery_photos) }}
   </div>
 </section>
+{% endif %}
 
 {# ---------- Ціни ---------- #}
-<section class="section section-stone" id="prices">
+{% if sections.prices %}
+<section class="section section-alt" id="prices">
   <div class="container">
     <div class="section-head">
       <p class="kicker">Ціни</p>
-      <h2>Вартість за добу</h2>
-      <p class="muted">Ціна за весь будинок. Що довше відпочинок — то нижча ціна за добу. Передоплата {{ C.prepaymentPercent }}%.</p>
+      <h2>Вартість за ніч</h2>
+      <p class="muted">Ціна за весь об'єкт, а не за місце.{% if rules.prepayment_percent %} Передоплата {{ rules.prepayment_percent }}%.{% endif %}</p>
     </div>
-    <div class="price-cards">
+    <div class="price-cards price-cards--{{ [objects|length, 3]|min }}">
       {% for o in objects %}
-      <article class="price-card price-card--{{ o.tone }} reveal">
+      <article class="price-card reveal">
         <header><span class="price-icon">{{ icon(o.icon, 24) }}</span><h3><a href="{{ url_for('object_page', slug=o.slug) }}">{{ o.name }}</a></h3></header>
         {{ price_rows(o, periods) }}
         <a class="btn btn-line btn-sm btn-block" href="#booking" data-book="{{ o.id }}">Перевірити дати</a>
       </article>
       {% endfor %}
     </div>
-    {% if extras %}
-    <p class="prices-extras">{{ icon("hottub", 18) }} {% for e in extras %}{{ e.name }} — {{ e.price|uah }} за вечір{% if not loop.last %} · {% endif %}{% endfor %}. Додаються до суми, якщо позначити їх у формі бронювання.</p>
-    {% endif %}
   </div>
 </section>
+{% endif %}
 
 {% include "_booking.html" %}
 
 {# ---------- Відгуки ---------- #}
-<section class="section section-stone" id="reviews">
+{% if sections.reviews and site.reviews %}
+<section class="section section-alt" id="reviews">
   <div class="container">
     <div class="section-head">
-      <p class="kicker">Відгуки гостей</p>
+      <p class="kicker">Відгуки</p>
       <h2>Що кажуть гості</h2>
     </div>
     <div class="reviews">
-      {% for text, author, meta in reviews %}
+      {% for r in site.reviews %}
       <article class="review reveal">
         <span class="review-quote">{{ icon("quote", 26) }}</span>
         <div class="review-stars" aria-label="5 зірок">{% for _ in range(5) %}{{ icon("star", 15) }}{% endfor %}</div>
-        <p class="review-text">{{ text }}</p>
-        <p class="review-author"><b>{{ author }}</b><small>{{ meta }}</small></p>
+        <p class="review-text">{{ r.text }}</p>
+        <p class="review-author"><b>{{ r.author }}</b>{% if r.meta %}<small>{{ r.meta }}</small>{% endif %}</p>
       </article>
       {% endfor %}
     </div>
   </div>
 </section>
+{% endif %}
+
+{# ---------- Часті питання ---------- #}
+{% if sections.faq and site.faq %}
+<section class="section" id="faq">
+  <div class="container faq-grid">
+    <div class="section-head">
+      <p class="kicker">Питання</p>
+      <h2>Часто запитують</h2>
+      <p class="muted">Не знайшли відповіді? Зателефонуйте: <a href="tel:{{ contacts.phone_href }}">{{ contacts.phone }}</a></p>
+    </div>
+    <div class="faq">
+      {% for f in site.faq %}
+      <details class="faq-item"{% if loop.first %} open{% endif %}>
+        <summary>{{ f.q }} {{ icon("down", 20) }}</summary>
+        <p>{{ f.a }}</p>
+      </details>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
 
 {# ---------- Поруч ---------- #}
-<section class="section" id="nearby">
+{% if sections.nearby and site.nearby %}
+<section class="section section-alt" id="nearby">
   <div class="container">
     <div class="section-head">
-      <p class="kicker">Що поруч</p>
-      <h2>Навколо садиби</h2>
+      <p class="kicker">Поруч</p>
+      <h2>Що цікавого навколо</h2>
     </div>
     <ul class="nearby">
-      {% for ic, title, text in nearby %}
-      <li class="near reveal"><span class="t-icon">{{ icon(ic, 22) }}</span><div><strong>{{ title }}</strong><span>{{ text }}</span></div></li>
+      {% for n in site.nearby %}
+      <li class="near reveal"><span class="t-icon">{{ icon(n.icon, 22) }}</span><div><strong>{{ n.title }}{% if n.distance %} <em>{{ n.distance }}</em>{% endif %}</strong><span>{{ n.text }}</span></div></li>
       {% endfor %}
     </ul>
   </div>
 </section>
+{% endif %}
 
 {# ---------- Контакти ---------- #}
-<section class="section section-stone" id="contacts">
+<section class="section" id="contacts">
   <div class="container">
     <div class="section-head">
       <p class="kicker">Контакти</p>
       <h2>Телефонуйте або пишіть</h2>
     </div>
-    <div class="contacts-grid">
+    <div class="contacts-grid{% if not sections.map %} contacts-grid--solo{% endif %}">
       <div class="contact-list">
-        <a class="contact-item" href="tel:{{ site.phone_href }}"><span class="t-icon">{{ icon("phone", 20) }}</span><span><small>Телефон</small>{{ site.phone }}</span></a>
-        {% if site.viber_href %}<a class="contact-item" href="{{ site.viber_href }}"><span class="t-icon">{{ icon("message", 20) }}</span><span><small>Viber</small>{{ site.phone }}</span></a>{% endif %}
-        {% if site.telegram %}<a class="contact-item" href="https://t.me/{{ site.telegram }}" target="_blank" rel="noopener"><span class="t-icon">{{ icon("telegram", 20) }}</span><span><small>Telegram</small>@{{ site.telegram }}</span></a>{% endif %}
-        {% if site.instagram %}<a class="contact-item" href="{{ site.instagram_url }}" target="_blank" rel="noopener"><span class="t-icon">{{ icon("instagram", 20) }}</span><span><small>Instagram</small>@{{ site.instagram }}</span></a>{% endif %}
-        {% if site.tiktok %}<a class="contact-item" href="{{ site.tiktok_url }}" target="_blank" rel="noopener"><span class="t-icon">{{ icon("tiktok", 20) }}</span><span><small>TikTok</small>@{{ site.tiktok }}</span></a>{% endif %}
-        {% if site.email %}<a class="contact-item" href="mailto:{{ site.email }}"><span class="t-icon">{{ icon("mail", 20) }}</span><span><small>Пошта</small>{{ site.email }}</span></a>{% endif %}
-        <a class="contact-item" href="https://www.google.com/maps/search/?api=1&query={{ site.map_query|urlencode }}" target="_blank" rel="noopener"><span class="t-icon">{{ icon("pin", 20) }}</span><span><small>Адреса</small>{{ site.address }}<em>{{ site.address_note }}</em></span></a>
+        <a class="contact-item" href="tel:{{ contacts.phone_href }}"><span class="t-icon">{{ icon("phone", 20) }}</span><span><small>Телефон</small>{{ contacts.phone }}</span></a>
+        {% if contacts.viber %}<a class="contact-item" href="viber://chat?number={{ contacts.viber|urlencode }}"><span class="t-icon">{{ icon("message", 20) }}</span><span><small>Viber</small>Написати у Viber</span></a>{% endif %}
+        {% if contacts.whatsapp %}<a class="contact-item" href="https://wa.me/{{ contacts.whatsapp }}" target="_blank" rel="noopener"><span class="t-icon">{{ icon("whatsapp", 20) }}</span><span><small>WhatsApp</small>Написати у WhatsApp</span></a>{% endif %}
+        {% if contacts.telegram %}<a class="contact-item" href="https://t.me/{{ contacts.telegram }}" target="_blank" rel="noopener"><span class="t-icon">{{ icon("telegram", 20) }}</span><span><small>Telegram</small>@{{ contacts.telegram }}</span></a>{% endif %}
+        {% if contacts.instagram %}<a class="contact-item" href="https://instagram.com/{{ contacts.instagram }}" target="_blank" rel="noopener"><span class="t-icon">{{ icon("instagram", 20) }}</span><span><small>Instagram</small>@{{ contacts.instagram }}</span></a>{% endif %}
+        {% if contacts.tiktok %}<a class="contact-item" href="https://www.tiktok.com/@{{ contacts.tiktok }}" target="_blank" rel="noopener"><span class="t-icon">{{ icon("tiktok", 20) }}</span><span><small>TikTok</small>@{{ contacts.tiktok }}</span></a>{% endif %}
+        {% if contacts.email %}<a class="contact-item" href="mailto:{{ contacts.email }}"><span class="t-icon">{{ icon("mail", 20) }}</span><span><small>Пошта</small>{{ contacts.email }}</span></a>{% endif %}
+        <a class="contact-item" href="https://www.google.com/maps/search/?api=1&query={{ contacts.map_query|urlencode }}" target="_blank" rel="noopener"><span class="t-icon">{{ icon("pin", 20) }}</span><span><small>Адреса</small>{{ contacts.address }}{% if contacts.region %}<em>{{ contacts.region }}</em>{% endif %}</span></a>
       </div>
-      <div class="map-wrap">
-        <iframe title="Карта: {{ site.name }}" src="https://www.google.com/maps?q={{ site.map_query|urlencode }}&z=12&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+      {% if sections.map %}
+      <div class="map-col">
+        <div class="map-wrap">
+          <iframe title="Карта: {{ brand.name }}" src="https://www.google.com/maps?q={{ contacts.map_query|urlencode }}&z=13&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+        </div>
+        {% if contacts.directions %}
+        <div class="directions">
+          <h3>{{ icon("route", 20) }} Як доїхати</h3>
+          {% for p in contacts.directions %}<p>{{ p }}</p>{% endfor %}
+        </div>
+        {% endif %}
       </div>
+      {% endif %}
     </div>
   </div>
 </section>

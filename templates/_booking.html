@@ -1,24 +1,25 @@
 {% from "_icons.html" import icon %}
 {# Форма бронювання: 1) об'єкт → 2) дати в календарі → 3) гості → автоматична ціна. #}
-<section class="section section-stone" id="booking">
+{%- set first = selected or objects[0] -%}
+<section class="section" id="booking">
   <div class="container">
     <div class="section-head">
       <p class="kicker">Бронювання</p>
-      <h2>Оберіть будинок і дати</h2>
-      <p class="muted">У кожного будинку свій календар і свої ціни. Вартість — зі знижкою за тривалість, чаном і банею — рахується автоматично.</p>
+      <h2>{{ "Оберіть варіант і дати" if objects|length > 1 else "Оберіть дати" }}</h2>
+      <p class="muted">Вартість рахується автоматично — з урахуванням сезону, кількості гостей і додаткових послуг.</p>
     </div>
 
     <form class="booking" id="booking-form" novalidate>
       <div class="hp" aria-hidden="true"><label>Сайт <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
 
-      <fieldset class="step">
-        <legend><span class="step-n">1</span> Будинок</legend>
-        <div class="obj-pick" role="radiogroup">
+      <fieldset class="step"{% if objects|length == 1 %} hidden{% endif %}>
+        <legend><span class="step-n">1</span> Де зупинитесь</legend>
+        <div class="obj-pick obj-pick--{{ [objects|length, 3]|min }}" role="radiogroup">
           {% for o in objects %}
-          <label class="obj-opt obj-opt--{{ o.tone }}">
-            <input type="radio" name="objectId" value="{{ o.id }}"{% if (selected and selected.id == o.id) or (not selected and loop.first) %} checked{% endif %}>
+          <label class="obj-opt">
+            <input type="radio" name="objectId" value="{{ o.id }}"{% if first.id == o.id %} checked{% endif %}>
             <span class="obj-opt-icon">{{ icon(o.icon, 26) }}</span>
-            <span class="obj-opt-text"><b>{{ o.name }}</b><small>{{ o.guests_text }} · від {{ o.price_from|uah }} / доба</small></span>
+            <span class="obj-opt-text"><b>{{ o.name }}</b><small>до {{ o.max_guests }} {{ guests_gen(o.max_guests) }} · від {{ o.price_from|uah }} / ніч</small></span>
           </label>
           {% endfor %}
         </div>
@@ -26,7 +27,7 @@
 
       <div class="booking-grid">
         <fieldset class="step card calendar-card">
-          <legend><span class="step-n">2</span> Дати <small id="cal-object"></small></legend>
+          <legend><span class="step-n">{{ 2 if objects|length > 1 else 1 }}</span> Дати <small id="cal-object"></small></legend>
           <div class="calendar" id="calendar">
             <div class="cal-toolbar">
               <button type="button" class="cal-nav" data-dir="-1" aria-label="Попередній місяць">{{ icon("left", 20) }}</button>
@@ -38,8 +39,7 @@
               <span><i class="lg lg-free"></i> вільно</span>
               <span><i class="lg lg-busy"></i> зайнято</span>
               <span><i class="lg lg-selected"></i> ваші дати</span>
-              <span><b class="lg-price">4к</b> ціна за добу</span>
-              <span><b class="lg-price">дог.</b> за домовленістю</span>
+              <span><b class="lg-price">4,5к</b> ціна за ніч, тис. грн</span>
             </div>
             <p class="cal-hint" id="cal-hint" role="status"></p>
           </div>
@@ -51,25 +51,26 @@
 
         <div class="booking-side">
           <fieldset class="step card">
-            <legend><span class="step-n">3</span> Гості та контакти</legend>
+            <legend><span class="step-n">{{ 3 if objects|length > 1 else 2 }}</span> Гості та контакти</legend>
             <label class="field"><span>Кількість гостей <em id="guests-note"></em></span><select name="guests" id="guests"></select></label>
+            {% if extras %}
             <div class="extras-pick">
-              <span class="extras-title">Додатково — тільки для гостей садиби</span>
+              <span class="extras-title">Додаткові послуги</span>
               {% for e in extras %}
               <label class="extra-opt"><input type="checkbox" name="extras" value="{{ e.key }}">
-                <span class="extra-icon">{{ icon("hottub" if e.key == "chan" else "flame", 20) }}</span>
-                <span class="extra-text"><b>{{ e.name }}</b><small>за вечір, час необмежений</small></span>
-                <span class="extra-price">+{{ e.price|uah }}</span>
+                <span class="extra-icon">{{ icon(e.icon, 20) }}</span>
+                <span class="extra-text"><b>{{ e.name }}</b><small>{{ e.unitLabel }}</small></span>
+                <span class="extra-price" data-extra-price="{{ e.key }}">+{{ e.priceFrom|uah }}</span>
               </label>
               {% endfor %}
-              <p class="extras-note">Погодинно — за домовленістю, напишіть у коментарі.</p>
             </div>
+            {% endif %}
             <div class="form-row two">
               <label class="field"><span>Ваше ім'я</span><input type="text" name="name" required maxlength="80" autocomplete="name" placeholder="Олена"></label>
               <label class="field"><span>Телефон</span><input type="tel" name="phone" required maxlength="32" autocomplete="tel" inputmode="tel" placeholder="+380 __ ___ __ __"></label>
             </div>
             <label class="field"><span>Коментар <em>(необов'язково)</em></span>
-              <textarea name="comment" rows="2" maxlength="500" placeholder="Час приїзду, харчування, побажання"></textarea>
+              <textarea name="comment" rows="2" maxlength="500" placeholder="Час приїзду, побажання"></textarea>
             </label>
           </fieldset>
 
@@ -79,35 +80,47 @@
               <p class="summary-unit"></p>
               <ul class="summary-lines"></ul>
               <div class="summary-total"><span>Разом</span><strong></strong></div>
-              <div class="summary-prepay"><span>Передоплата {{ C.prepaymentPercent }}% для підтвердження</span><b></b></div>
+              <div class="summary-prepay"{% if not rules.prepayment_percent %} hidden{% endif %}><span>Передоплата {{ rules.prepayment_percent }}% для підтвердження</span><b></b></div>
             </div>
           </div>
 
-          <label class="check"><input type="checkbox" name="rules" id="rules-ok"><span>Я ознайомився(-лася) з <a href="#rules">умовами бронювання</a>: передоплата {{ C.prepaymentPercent }}%, заселення о {{ C.checkIn }}, виселення до {{ C.checkOut }}.</span></label>
+          <label class="check"><input type="checkbox" name="rules" id="rules-ok"><span>Я ознайомився(-лася) з <a href="#rules">умовами бронювання</a>:{% if rules.prepayment_percent %} передоплата {{ rules.prepayment_percent }}%,{% endif %} заїзд з <span id="rule-in">{{ first.check_in }}</span>, виїзд до <span id="rule-out">{{ first.check_out }}</span>.</span></label>
           <p class="form-error" id="form-error" role="alert" hidden></p>
-          <button class="btn btn-dark btn-lg btn-block" type="submit">Надіслати заявку</button>
-          <p class="form-note">{{ icon("shield", 16) }} Оплата зараз не потрібна. Ми зателефонуємо й надішлемо реквізити.</p>
+          <button class="btn btn-primary btn-lg btn-block" type="submit">Надіслати заявку</button>
+          <p class="form-note">{{ icon("shield", 16) }} Оплата зараз не потрібна. Ми зателефонуємо й підтвердимо бронювання.</p>
         </div>
       </div>
     </form>
   </div>
 </section>
 
-{# Правила — однакові для всіх будинків (тексти — у site_content.py) #}
-<section class="section" id="rules">
+{# Правила — з розділу rules конфігу #}
+<section class="section section-alt" id="rules">
   <div class="container">
     <div class="section-head">
       <p class="kicker">Правила</p>
       <h2>Умови бронювання та проживання</h2>
     </div>
     <ul class="rules">
-      <li class="rule reveal">{{ icon("percent", 22) }}<div><strong>Знижка за тривалість</strong><span>Від 2 діб ціна за добу нижча, для А-фрейму — ще нижча від 5 діб.</span></div></li>
-      <li class="rule reveal">{{ icon("gift", 22) }}<div><strong>Новорічні свята</strong><span>Ціна за домовленістю — уточніть у власника.</span></div></li>
-      <li class="rule reveal">{{ icon("card", 22) }}<div><strong>Передоплата {{ C.prepaymentPercent }}%</strong><span>Бронювання підтверджується після передоплати.</span></div></li>
-      <li class="rule reveal">{{ icon("refresh", 22) }}<div><strong>Перенесення</strong><span>Можливе, якщо попередити не пізніше ніж за {{ C.rescheduleDaysBefore }} днів до заїзду.</span></div></li>
-      <li class="rule reveal">{{ icon("clock", 22) }}<div><strong>Заселення о {{ C.checkIn }}</strong><span>Виселення до {{ C.checkOut }}.</span></div></li>
-      {% for ic, title, text in house_rules %}
-      <li class="rule reveal">{{ icon(ic, 22) }}<div><strong>{{ title }}</strong><span>{{ text }}</span></div></li>
+      {% if rules.prepayment_percent %}
+      <li class="rule reveal">{{ icon("card", 22) }}<div><strong>Передоплата {{ rules.prepayment_percent }}%</strong><span>Бронювання підтверджується після передоплати. Решта — під час заселення.</span></div></li>
+      {% endif %}
+      {% if rules.cancellation_text %}
+      <li class="rule reveal">{{ icon("refresh", 22) }}<div><strong>Скасування та перенесення</strong><span>{{ rules.cancellation_text }}</span></div></li>
+      {% endif %}
+      {% if same_times %}
+      <li class="rule reveal">{{ icon("clock", 22) }}<div><strong>Заїзд з {{ objects[0].check_in }}</strong><span>Виїзд до {{ objects[0].check_out }}.</span></div></li>
+      {% else %}
+      <li class="rule reveal">{{ icon("clock", 22) }}<div><strong>Заїзд і виїзд</strong>{% for o in objects %}<span>{{ o.name }}: заїзд з {{ o.check_in }}, виїзд до {{ o.check_out }}.</span>{% endfor %}</div></li>
+      {% endif %}
+      {% if min_nights_max > 1 %}
+      <li class="rule reveal">{{ icon("calendar", 22) }}<div><strong>Мінімальний термін</strong>{% for o in objects if o.min_nights > 1 %}<span>{{ o.name }}: від {{ o.min_nights }} {{ plural(o.min_nights, "ночі", "ночей", "ночей") }}.</span>{% endfor %}</div></li>
+      {% endif %}
+      {% if rules.pets %}<li class="rule reveal">{{ icon("paw", 22) }}<div><strong>Домашні тварини</strong><span>{{ rules.pets }}</span></div></li>{% endif %}
+      {% if rules.smoking %}<li class="rule reveal">{{ icon("nosmoke", 22) }}<div><strong>Куріння</strong><span>{{ rules.smoking }}</span></div></li>{% endif %}
+      {% if rules.quiet %}<li class="rule reveal">{{ icon("moon", 22) }}<div><strong>Тиша</strong><span>{{ rules.quiet }}</span></div></li>{% endif %}
+      {% for r in rules.extra %}
+      <li class="rule reveal">{{ icon(r.icon or "info", 22) }}<div><strong>{{ r.title }}</strong><span>{{ r.text }}</span></div></li>
       {% endfor %}
     </ul>
   </div>

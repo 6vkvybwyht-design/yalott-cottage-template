@@ -6,8 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="robots" content="noindex, nofollow">
   <meta name="csrf-token" content="{{ csrf_token }}">
-  <title>Адмінка · {{ site.name }}</title>
-  <link rel="icon" href="{{ S }}favicon.png" type="image/png">
+  <title>Адмінка · {{ brand.name }}</title>
+  <link rel="icon" href="{{ (S ~ favicon) if favicon else url_for('favicon') }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -19,7 +19,7 @@
 <header class="abar">
   <div class="container abar__inner">
     <a href="{{ url_for('index') }}" class="brand brand-light" title="На сайт" target="_blank" rel="noopener">
-      <img class="abar__logo" src="{{ S }}img/logo-light.png" alt="{{ site.name }}" width="80" height="38">
+      {% if logo_light %}<img class="abar__logo" src="{{ S }}{{ logo_light }}" alt="{{ brand.name }}" height="38">{% else %}<span class="abar__name">{{ brand.name }}</span>{% endif %}
       <span class="abar__label">Адмінка</span>
     </a>
     <span class="abar__user">{{ admin_name }}</span>
@@ -74,7 +74,7 @@
 
   <!-- ЦІНИ -->
   <section data-panel="prices" class="apanel" hidden>
-    <p class="muted aintro">Ціни окремо для кожного будинку — за весь будинок за добу. «Знижка за тривалість»: ціна за добу, якщо бронювання від N діб (діє найбільший досягнутий поріг). Періоди «за домовленістю» (напр. новорічні свята): сайт не рахує суму, а пише «Уточніть ціну у власника».</p>
+    <p class="muted aintro">Ціни окремо для кожного об'єкта — за весь об'єкт за ніч. Ціна — будь-яке ціле число в гривнях. «Доплата за гостя» додається за кожного гостя понад базову кількість за кожну ніч. Сезон: на його ночі діє своя ціна, а з галочкою «за домовленістю» сайт не рахує суму й пише «Уточніть ціну у власника».</p>
     <div class="price-objs" id="priceObjs"></div>
     <div class="abox" id="extrasBox"></div>
     <div class="abox" id="periodsBox"></div>

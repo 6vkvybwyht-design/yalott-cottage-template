@@ -1,6 +1,6 @@
 /*
- * Клієнт API сайту Forest House (Flask).
- * Публічні запити: зайнятість і ціни трьох об'єктів, бронювання.
+ * Клієнт API сайту (Flask).
+ * Публічні запити: зайнятість і ціни об'єктів, бронювання.
  * Адмінка: працює через сесію входу (/admin/login) і CSRF-токен.
  */
 (function () {
@@ -29,9 +29,17 @@
     admin: {
       data: function () { return request('GET', '/admin/api/data'); },
       setStatus: function (id, status) { return request('POST', '/admin/api/status', { id: id, status: status }); },
-      blockNights: function (dates, objects, blocked) { return request('POST', '/admin/api/block-nights', { dates: dates, objects: objects, blocked: blocked }); },
+      blockNights: function (dates, objects, blocked, count) {
+        var body = { dates: dates, objects: objects, blocked: blocked };
+        if (count != null) body.count = count;
+        return request('POST', '/admin/api/block-nights', body);
+      },
       saveObjectPrices: function (p) { return request('POST', '/admin/api/object-prices', p); },
-      saveExtraPrice: function (key, price) { return request('POST', '/admin/api/extra-price', { key: key, price: price }); },
+      saveExtraPrice: function (key, price, guestPrices) {
+        var body = { key: key, price: price };
+        if (guestPrices) body.guestPrices = guestPrices;
+        return request('POST', '/admin/api/extra-price', body);
+      },
       savePeriod: function (p) { return request('POST', '/admin/api/period', p); },
       deletePeriod: function (id) { return request('POST', '/admin/api/period-delete', { id: id }); },
       telegramTest: function () { return request('POST', '/admin/api/telegram-test'); }

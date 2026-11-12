@@ -1,4 +1,4 @@
-/* Forest House — меню, галереї, календар обраного будинку, розрахунок суми (знижки, чан, баня), бронювання. */
+/* Меню, галереї, календар обраного об'єкта, розрахунок суми (сезони, гості, послуги), бронювання. */
 (function () {
   "use strict";
 
@@ -96,13 +96,14 @@
   var data = null, P = null, busy = {}, state = { checkIn: null, checkOut: null }, view = null;
 
   function money(n) { return V.formatUAH(n); }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
   function human(iso) { var d = V.toDate(iso); return d.getUTCDate() + " " + MONTHS_GEN[d.getUTCMonth()]; }
   function plural(n, one, few, many) {
     if (n % 10 === 1 && n % 100 !== 11) return one;
     if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)) return few;
     return many;
   }
-  function nightsWord(n) { return plural(n, "доба", "доби", "діб"); }
+  function nightsWord(n) { return plural(n, "ніч", "ночі", "ночей"); }
   function extrasChecked() { return $$('input[name="extras"]:checked', form).map(function (i) { return i.value; }); }
   function isValidIso(v) { return /^\d{4}-\d{2}-\d{2}$/.test(v || ""); }
 
@@ -112,7 +113,7 @@
   function isBusy(iso) { return !!busySet()[iso]; }
   function canCheckIn(iso) { return iso >= data.today && iso < data.lastDate && !isBusy(iso); }
   function limitFor(iso) { return P.checkoutLimit(busySet(), iso, data.lastDate); }
-  function minNights() { return P.CONFIG.minNights; }
+  function minNights() { return obj().minNights || 1; }
 
   function fillGuests() {
     var o = obj(), cur = +guestsEl.value || 2, html = "";
@@ -121,7 +122,20 @@
     }
     guestsEl.innerHTML = html;
     guestsEl.value = String(Math.min(cur, o.maxGuests));
-    $("#guests-note").textContent = o.guestsText;
+    $("#guests-note").textContent = o.baseGuests < o.maxGuests
+      ? "у ціні — " + o.baseGuests + (o.extraGuestPrice ? ", далі +" + money(o.extraGuestPrice) + " / ніч" : "") : "";
+    var rin = $("#rule-in"), rout = $("#rule-out");
+    if (rin) rin.textContent = o.checkIn;
+    if (rout) rout.textContent = o.checkOut;
+  }
+
+  // Ціна послуги у формі залежить від кількості гостей і ночей.
+  function updateExtraPrices() {
+    var g = +guestsEl.value || 1, n = state.checkIn && state.checkOut ? V.nightsBetween(state.checkIn, state.checkOut).length : 1;
+    P.extras.forEach(function (e) {
+      var el = $('[data-extra-price="' + e.key + '"]', form);
+      if (el) el.textContent = "+" + money(P.extraUnitPrice(e, g) * P.extraQuantity(e.unit, n, g));
+    });
   }
 
   function monthsVisible() { return window.matchMedia("(max-width: 860px)").matches ? 1 : 2; }
@@ -212,11 +226,12 @@
 
   function updateSummary() {
     var empty = $(".summary-empty", summary), body = $(".summary-body", summary), o = obj();
+    updateExtraPrices();
     if (!state.checkIn) setHint("Оберіть дату заїзду.");
     else if (!state.checkOut) {
       var lim = limitFor(state.checkIn);
       if (!lim || lim < V.addDays(state.checkIn, minNights())) {
-        setHint("З " + human(state.checkIn) + " вільна лише одна ніч, а мінімум — " + minNights() + ". Оберіть іншу дату заїзду.", true);
+        setHint("Від " + human(state.checkIn) + " замало вільних ночей (мінімум — " + minNights() + "). Оберіть іншу дату заїзду.", true);
       } else {
         setHint("Заїзд " + human(state.checkIn) + ". Тепер оберіть дату виїзду (мінімум " + minNights() + " " + nightsWord(minNights()) + ").");
       }
@@ -231,21 +246,28 @@
       html += "<li><span>" + l.count + " " + nightsWord(l.count) + " × " + money(l.price) + (l.label ? ' <em class="' + (l.kind === "tier" ? "tag-good" : "") + '">' + l.label + "</em>" : "") +
         "</span><span>" + money(l.sum) + "</span></li>";
     });
-    if (q.onRequest) html += '<li class="note"><span>' + q.missingNights.length + " " + nightsWord(q.missingNights.length) + " — святкова ціна за домовленістю</span><span>?</span></li>";
+    if (q.onRequest) html += '<li class="note"><span>' + q.missingNights.length + " " + nightsWord(q.missingNights.length) + " — ціна за домовленістю</span><span>?</span></li>";
     if (q.tier) {
       var tierDays = q.lines.filter(function (l) { return l.kind === "tier"; }).reduce(function (s, l) { return s + l.count; }, 0);
-      html += '<li class="good"><span>Знижка за тривалість (замість ' + money(q.basePrice) + " / доба)</span><span>−" + money((q.basePrice - q.rate) * tierDays) + "</span></li>";
+      html += '<li class="good"><span>Знижка за тривалість (замість ' + money(q.basePrice) + " / ніч)</span><span>−" + money((q.basePrice - q.rate) * tierDays) + "</span></li>";
     } else {
       var next = obj().tiers.filter(function (t) { return t.nights > q.nights; })[0];
-      if (next) html += '<li class="note"><span>Від ' + next.nights + " " + nightsWord(next.nights) + " — " + money(next.price) + " / доба</span></li>";
+      if (next) html += '<li class="note"><span>Від ' + next.nights + " " + nightsWord(next.nights) + " — " + money(next.price) + " / ніч</span></li>";
     }
-    q.extras.forEach(function (e) { html += "<li><span>" + e.name + " (вечір)</span><span>" + money(e.price) + "</span></li>"; });
+    if (q.extraGuests) {
+      var eg = q.extraGuests;
+      html += "<li><span>Доплата: " + eg.count + " " + plural(eg.count, "гість", "гості", "гостей") + " × " + money(eg.price) +
+        (eg.nights > 1 ? " × " + eg.nights + " " + nightsWord(eg.nights) : "") + "</span><span>" + money(eg.sum) + "</span></li>";
+    }
+    q.extras.forEach(function (e) {
+      html += "<li><span>" + esc(e.name) + (e.qty > 1 ? " × " + e.qty : "") + "</span><span>" + money(e.sum) + "</span></li>";
+    });
     $(".summary-lines", summary).innerHTML = html;
     $(".summary-total strong", summary).textContent = q.onRequest ? "Уточніть ціну у власника" : money(q.total);
     $(".summary-prepay b", summary).textContent = q.onRequest ? "після узгодження ціни" : money(q.prepayment);
     summary.classList.toggle("is-request", q.onRequest);
     setHint(human(state.checkIn) + " → " + human(state.checkOut) + " · " + q.nights + " " + nightsWord(q.nights) +
-      (q.onRequest ? " · святкові дати — ціну уточнить власник" : ""));
+      (q.onRequest ? " · на частину дат ціну уточнить власник" : ""));
   }
 
   // Ручне введення дат у поля форми.
@@ -258,24 +280,25 @@
       var lim = limitFor(a);
       if (isValidIso(b) && b >= V.addDays(a, minNights()) && b <= lim) state.checkOut = b;
       else if (isValidIso(b) && b > a && b < V.addDays(a, minNights())) showError("Мінімальне бронювання — " + minNights() + " " + nightsWord(minNights()) + ".");
-      else if (isValidIso(b) && b > a) showError("У вибраному періоді будинок уже зайнятий. Оберіть іншу дату виїзду.");
+      else if (isValidIso(b) && b > a) showError("У вибраному періоді вже є зайняті ночі. Оберіть іншу дату виїзду.");
       jumpTo(a);
     } else if (isValidIso(a)) {
-      showError(isBusy(a) ? "На цю дату «" + obj().name + "» зайнятий." : "Ця дата недоступна для заїзду.");
+      showError(isBusy(a) ? "На цю дату «" + obj().name + "» — зайнято." : "Ця дата недоступна для заїзду.");
     }
     sync();
   }
   inIn.addEventListener("change", fromInputs);
   inOut.addEventListener("change", fromInputs);
 
-  // Зміна об'єкта: свій календар, свої ціни, своя кількість гостей.
+  // Зміна об'єкта: свій календар, свої ціни, своя кількість гостей і мінімум ночей.
   function onObjectChange() {
     fillGuests();
     if (state.checkIn) {
-      var ok = canCheckIn(state.checkIn) && (!state.checkOut || state.checkOut <= limitFor(state.checkIn));
+      var ok = canCheckIn(state.checkIn) && (!state.checkOut ||
+        (state.checkOut <= limitFor(state.checkIn) && state.checkOut >= V.addDays(state.checkIn, minNights())));
       if (!ok) {
         state.checkIn = state.checkOut = null;
-        showError("«" + obj().name + "» на обрані дати зайнятий — оберіть інші дати в календарі.");
+        showError("«" + obj().name + "» на обрані дати недоступний — оберіть інші дати в календарі.");
       }
     }
     sync();
@@ -356,14 +379,16 @@
   function showSuccess(b) {
     $("#success-code").textContent = "Код бронювання: " + b.id;
     $("#success-body").innerHTML = '<dl class="success-dl">' +
-      '<div class="full"><dt>Будинок</dt><dd>' + b.objectName + "</dd></div>" +
+      '<div class="full"><dt>Проживання</dt><dd>' + esc(b.objectName) + "</dd></div>" +
       "<div><dt>Дати</dt><dd>" + human(b.checkIn) + " → " + human(b.checkOut) + "</dd></div>" +
       "<div><dt>Гостей</dt><dd>" + b.guests + "</dd></div>" +
-      (b.extras.length ? "<div><dt>Додатково</dt><dd>" + b.extras.join(", ") + "</dd></div>" : "") +
+      (b.extras.length ? "<div><dt>Додатково</dt><dd>" + esc(b.extras.join(", ")) + "</dd></div>" : "") +
       (b.onRequest
         ? '<div class="full accent"><dt>Вартість</dt><dd>Уточніть ціну у власника — ми зателефонуємо й назвемо суму.</dd></div></dl>'
         : "<div><dt>Разом</dt><dd>" + money(b.total) + "</dd></div>" +
-          '<div class="accent"><dt>Передоплата ' + P.CONFIG.prepaymentPercent + "%</dt><dd>" + money(b.prepayment) + "</dd></div></dl>");
+          (P.CONFIG.prepaymentPercent ? '<div class="accent"><dt>Передоплата ' + P.CONFIG.prepaymentPercent + "%</dt><dd>" + money(b.prepayment) + "</dd></div>" : "") + "</dl>");
+    var sc = $("#success-checkin"), so = P.obj(b.objectId);
+    if (sc && so) sc.textContent = so.checkIn;
     modal.hidden = false;
     $(".btn", modal).focus();
   }
