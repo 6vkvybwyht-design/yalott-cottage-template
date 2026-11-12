@@ -2,46 +2,49 @@
 {%- set S = url_for('static', filename='') -%}
 {%- set home = url_for('index') -%}
 <!doctype html>
-<html lang="uk">
+<html lang="{{ site.seo.lang }}" data-theme="{{ brand.theme }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>{% block title %}{{ site.full_name }}{% endblock %}</title>
-  <meta name="description" content="{% block description %}{% endblock %}">
-  <meta name="theme-color" content="#f7f5f0">
+  <title>{% block title %}{{ site.seo.title }}{% endblock %}</title>
+  <meta name="description" content="{% block description %}{{ site.seo.description }}{% endblock %}">
   <meta name="csrf-token" content="{{ csrf_token }}">
   <meta property="og:title" content="{{ self.title() }}">
   <meta property="og:description" content="{{ self.description() }}">
-  <meta property="og:image" content="{{ S }}{% block og_image %}{{ site.hero_photo }}{% endblock %}">
+  {% if og_image %}<meta property="og:image" content="{{ url_for('static', filename=og_image, _external=True) }}">{% endif %}
   <meta property="og:type" content="website">
-  <link rel="icon" href="{{ S }}favicon.png" type="image/png">
-  <link rel="apple-touch-icon" href="{{ S }}favicon.png">
+  <meta property="og:locale" content="{{ 'uk_UA' if site.seo.lang == 'uk' else site.seo.lang }}">
+  {% if favicon %}<link rel="icon" href="{{ S }}{{ favicon }}">
+  <link rel="apple-touch-icon" href="{{ S }}{{ favicon }}">
+  {% else %}<link rel="icon" href="{{ url_for('favicon') }}" type="image/svg+xml">{% endif %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Onest:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ S }}css/style.css{{ V }}">
+  {% if theme_overrides %}<style>{{ theme_overrides|safe }}</style>{% endif %}
+  {% block head %}{% endblock %}
 </head>
-<body class="{% block body_class %}{% endblock %}">
+<body class="dark-top {% block body_class %}{% endblock %}">
 
 <header class="site-header" id="top">
   <div class="container header-inner">
-    <a class="brand" href="{{ home }}" aria-label="{{ site.full_name }} — на головну">
-      <img class="brand-logo brand-logo--dark" src="{{ S }}img/logo.png" alt="Forest House" width="96" height="46">
-      <img class="brand-logo brand-logo--light" src="{{ S }}img/logo-light.png" alt="" width="96" height="46">
-      <span class="brand-kind">{{ site.kind }}</span>
+    <a class="brand" href="{{ home }}" aria-label="{{ brand.full_name }} — на головну">
+      {% if logo_light %}<img class="brand-logo" src="{{ S }}{{ logo_light }}" alt="{{ brand.name }}" height="46">
+      {% else %}<span class="brand-name">{{ brand.name }}</span>{% endif %}
     </a>
     <nav class="nav" id="nav" aria-label="Головне меню">
+      {% if nav_objects|length <= 4 %}
       <div class="nav-objects">
-        {% for o in all_objects %}<a href="{{ url_for('object_page', slug=o.slug) }}"{% if selected and selected.id == o.id %} aria-current="page"{% endif %}>{{ o.short }}</a>{% endfor %}
+        {% for o in nav_objects %}<a href="{{ url_for('object_page', slug=o.slug) }}"{% if selected and selected.key == o.key %} aria-current="page"{% endif %}>{{ o.short }}</a>{% endfor %}
       </div>
-      <a href="{{ home }}#territory">Територія</a>
-      <a href="{{ home }}#food">Харчування</a>
-      <a href="{{ home }}#prices">Ціни</a>
+      {% else %}<a href="{{ home }}#objects">Проживання</a>{% endif %}
+      {% if sections.extras and site.extras %}<a href="{{ home }}#extras">Послуги</a>{% endif %}
+      {% if sections.prices %}<a href="{{ home }}#prices">Ціни</a>{% endif %}
       <a href="{{ home }}#contacts">Контакти</a>
-      <a class="nav-phone" href="tel:{{ site.phone_href }}">{{ icon("phone", 15) }} {{ site.phone }}</a>
-      <a class="btn btn-dark btn-sm nav-cta" href="#booking">Забронювати</a>
+      <a class="nav-phone" href="tel:{{ contacts.phone_href }}">{{ icon("phone", 15) }} {{ contacts.phone }}</a>
+      <a class="btn btn-primary btn-sm nav-cta" href="#booking">Забронювати</a>
     </nav>
-    <a class="header-call" href="tel:{{ site.phone_href }}" aria-label="Подзвонити {{ site.phone }}">{{ icon("phone", 18) }}</a>
+    <a class="header-call" href="tel:{{ contacts.phone_href }}" aria-label="Подзвонити {{ contacts.phone }}">{{ icon("phone", 18) }}</a>
     <button class="nav-toggle" type="button" aria-controls="nav" aria-expanded="false" aria-label="Відкрити меню">{{ icon("menu", 24) }}</button>
   </div>
 </header>
@@ -53,34 +56,38 @@
 <footer class="site-footer">
   <div class="container footer-inner">
     <div class="footer-brand">
-      <a href="{{ home }}" aria-label="{{ site.full_name }}"><img class="footer-logo" src="{{ S }}img/logo-light.png" alt="Forest House" width="150" height="72"></a>
-      <p>{{ site.full_name }}. {{ site.tagline }}. Бронювання напряму — без комісій.</p>
+      <a class="brand" href="{{ home }}" aria-label="{{ brand.full_name }}">
+        {% if logo_light %}<img class="footer-logo" src="{{ S }}{{ logo_light }}" alt="{{ brand.name }}" height="72">
+        {% else %}<span class="brand-name brand-name--lg">{{ brand.name }}</span>{% endif %}
+      </a>
+      <p>{{ brand.full_name }}{% if brand.tagline %}. {{ brand.tagline }}{% endif %}. Бронювання напряму — без комісій.</p>
       <div class="socials">
-        {% if site.instagram %}<a href="{{ site.instagram_url }}" target="_blank" rel="noopener" aria-label="Instagram @{{ site.instagram }}">{{ icon("instagram", 20) }}</a>{% endif %}
-        {% if site.tiktok %}<a href="{{ site.tiktok_url }}" target="_blank" rel="noopener" aria-label="TikTok @{{ site.tiktok }}">{{ icon("tiktok", 20) }}</a>{% endif %}
+        {% if contacts.instagram %}<a href="https://instagram.com/{{ contacts.instagram }}" target="_blank" rel="noopener" aria-label="Instagram @{{ contacts.instagram }}">{{ icon("instagram", 20) }}</a>{% endif %}
+        {% if contacts.telegram %}<a href="https://t.me/{{ contacts.telegram }}" target="_blank" rel="noopener" aria-label="Telegram @{{ contacts.telegram }}">{{ icon("telegram", 20) }}</a>{% endif %}
+        {% if contacts.tiktok %}<a href="https://www.tiktok.com/@{{ contacts.tiktok }}" target="_blank" rel="noopener" aria-label="TikTok @{{ contacts.tiktok }}">{{ icon("tiktok", 20) }}</a>{% endif %}
       </div>
     </div>
     <div class="footer-col">
-      <h4>Будинки</h4>
-      {% for o in all_objects %}<a href="{{ url_for('object_page', slug=o.slug) }}">{{ o.name }}</a>{% endfor %}
+      <h4>Проживання</h4>
+      {% for o in nav_objects %}<a href="{{ url_for('object_page', slug=o.slug) }}">{{ o.name }}</a>{% endfor %}
     </div>
     <div class="footer-col">
       <h4>Контакти</h4>
-      <a href="tel:{{ site.phone_href }}">{{ site.phone }}</a>
-      {% if site.instagram %}<a href="{{ site.instagram_url }}" target="_blank" rel="noopener">Instagram @{{ site.instagram }}</a>{% endif %}
-      {% if site.tiktok %}<a href="{{ site.tiktok_url }}" target="_blank" rel="noopener">TikTok @{{ site.tiktok }}</a>{% endif %}
-      <span>{{ site.address }}</span>
+      <a href="tel:{{ contacts.phone_href }}">{{ contacts.phone }}</a>
+      {% if contacts.instagram %}<a href="https://instagram.com/{{ contacts.instagram }}" target="_blank" rel="noopener">Instagram @{{ contacts.instagram }}</a>{% endif %}
+      {% if contacts.email %}<a href="mailto:{{ contacts.email }}">{{ contacts.email }}</a>{% endif %}
+      <span>{{ contacts.address }}{% if contacts.region %}, {{ contacts.region }}{% endif %}</span>
     </div>
   </div>
   <div class="container footer-bottom">
-    <span>© {{ current_year }} {{ site.full_name }}</span>
-    <span>Сайт розроблено <a href="{{ site.studio_url }}" target="_blank" rel="noopener">Yalott Studio</a> · <a href="{{ url_for('admin.login') }}">Вхід для власника</a></span>
+    <span>© {{ current_year }} {{ brand.full_name }}</span>
+    <span>Сайт розроблено <a href="{{ site.studio.url }}" target="_blank" rel="noopener">{{ site.studio.name }}</a> · <a href="{{ url_for('admin.login') }}">Вхід для власника</a></span>
   </div>
 </footer>
 
 <div class="mobile-cta">
   <div>{% block mobile_price %}{% endblock %}</div>
-  <a class="btn btn-dark" href="#booking">Забронювати</a>
+  <a class="btn btn-primary" href="#booking">Забронювати</a>
 </div>
 
 <div class="lightbox" id="lightbox" hidden>
@@ -100,10 +107,10 @@
     <div class="success-body" id="success-body"></div>
     <ol class="steps">
       <li><b>Ми зателефонуємо</b><span>і підтвердимо деталі</span></li>
-      <li><b>Передоплата {{ C.prepaymentPercent }}%</b><span>за реквізитами від нас</span></li>
-      <li><b>Бронювання підтверджено</b><span>чекаємо вас о {{ C.checkIn }}</span></li>
+      {% if rules.prepayment_percent %}<li><b>Передоплата {{ rules.prepayment_percent }}%</b><span>за реквізитами від нас</span></li>{% endif %}
+      <li><b>Бронювання підтверджено</b><span>чекаємо вас з <i id="success-checkin">{{ rules.check_in }}</i></span></li>
     </ol>
-    <button class="btn btn-dark btn-block" type="button" data-close>Добре</button>
+    <button class="btn btn-primary btn-block" type="button" data-close>Добре</button>
   </div>
 </div>
 

@@ -4,8 +4,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Сторінку не знайдено · {{ site.name }}</title>
-  <link rel="icon" href="{{ S }}favicon.png" type="image/png">
+  <title>Сторінку не знайдено · {{ brand.name }}</title>
+  <link rel="icon" href="{{ (S ~ favicon) if favicon else url_for('favicon') }}">
   <link href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ S }}css/style.css{{ V }}">
   <link rel="stylesheet" href="{{ S }}css/admin.css{{ V }}">
@@ -13,10 +13,10 @@
 <body class="admin admin-dark">
 <section class="login">
   <div class="login__box">
-    <img class="login__logo" src="{{ S }}img/logo.png" alt="{{ site.full_name }}" width="160" height="76">
+    {% if logo %}<img class="login__logo" src="{{ S }}{{ logo }}" alt="{{ brand.full_name }}" height="76">{% else %}<p class="login__name">{{ brand.name }}</p>{% endif %}
     <h1>Сторінку не знайдено</h1>
     <p class="muted">Можливо, посилання застаріло.</p>
-    <a class="btn btn-dark btn-block" href="{{ url_for('index') }}">На головну</a>
+    <a class="btn btn-primary btn-block" href="{{ url_for('index') }}">На головну</a>
   </div>
 </section>
 </body>
