@@ -5,6 +5,8 @@ venv/
 instance/
 .env
 .DS_Store
+.pytest_cache/
 
-# Оригінали фото — лише локально; на сервер ідуть оптимізовані з static/img (tools/process_photos.py)
-photos/original/
+# Оригінали фото — лише локально (вони важкі). У git ідуть оброблені зі static/media/ (python manage.py photos).
+media/*
+!media/README.md

@@ -14,7 +14,6 @@ import urllib.error
 import urllib.request
 
 import pricing as P
-import site_content
 from database import connect
 
 log = logging.getLogger(__name__)
@@ -34,35 +33,38 @@ def _date(iso):
     return ".".join(reversed(iso.split("-")))
 
 
-OBJECT_EMOJI = {1: "🌿", 2: "🏡", 3: "🔺"}
-
-
-def booking_message(b):
+def booking_message(b, site_name):
+    """Текст сповіщення власнику. site_name — назва з конфігу (brand.name)."""
     q, e = b["price"], html.escape
     lines = [
-        f"🌲 <b>Нове бронювання · {e(site_content.SITE['name'])}</b>",
+        f"🏡 <b>Нове бронювання · {e(site_name)}</b>",
         "",
-        f"{OBJECT_EMOJI.get(b['objectId'], '🏠')} <b>{e(b['objectName'])}</b>",
+        f"🏠 <b>{e(b['objectName'])}</b>",
         f"👤 {e(b['name'])}",
         f"📞 {e(b['phone'])}",
-        f"📅 {_date(b['checkIn'])} → {_date(b['checkOut'])} ({b['nights']} діб)",
+        f"📅 {_date(b['checkIn'])} → {_date(b['checkOut'])} (ночей: {b['nights']})",
         f"👥 Гостей: {b['guests']}",
     ]
     if b.get("extras"):
-        lines.append("♨️ " + ", ".join(b["extras"]))
+        lines.append("♨️ " + ", ".join(e(x) for x in b["extras"]))
     lines.append("")
     for l in q.get("lines", []):
-        label = f" ({l['label']})" if l.get("label") else ""
+        label = f" ({e(l['label'])})" if l.get("label") else ""
         lines.append(f"• {l['count']} × {P.format_uah(l['price'])}{label} = {P.format_uah(l['sum'])}")
+    g = q.get("extraGuests")
+    if g:
+        lines.append(f"• Доплата за гостей: {g['count']} × {P.format_uah(g['price'])} × {g['nights']} ноч. = "
+                     f"{P.format_uah(g['sum'])}")
     for x in q.get("extras", []):
-        lines.append(f"• {x['name']} = {P.format_uah(x['price'])}")
+        qty = f" × {x['qty']}" if x.get("qty", 1) > 1 else ""
+        lines.append(f"• {e(x['name'])}{qty} = {P.format_uah(x.get('sum', x['price']))}")
     if b.get("onRequest"):
         missing = ", ".join(_date(d) for d in q.get("missingNights", []))
-        lines += ["💰 <b>Ціна за домовленістю</b>", f"Доби без ціни: {missing}",
+        lines += ["💰 <b>Ціна за домовленістю</b>", f"Ночі без ціни: {missing}",
                   "Узгодьте вартість і передоплату з гостем."]
     else:
         lines += [f"💰 <b>Разом: {P.format_uah(b['total'])}</b>",
-                  f"💳 Передоплата {q.get('prepaymentPercent', P.CONFIG['prepaymentPercent'])}%: "
+                  f"💳 Передоплата {q.get('prepaymentPercent', 0)}%: "
                   f"<b>{P.format_uah(b['prepayment'])}</b>"]
     if b["comment"]:
         lines += ["", f"💬 {e(b['comment'])}"]
@@ -71,8 +73,8 @@ def booking_message(b):
     return "\n".join(lines)
 
 
-def queue(db, booking):
-    message = booking_message(booking)
+def queue(db, booking, site_name):
+    message = booking_message(booking, site_name)
     cur = db.execute("INSERT INTO notifications (booking_code, message) VALUES (?, ?)", (booking["id"], message))
     return cur.lastrowid
 

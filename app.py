@@ -1,6 +1,9 @@
-"""Приватна садиба Forest House: три будинки з окремим бронюванням (Flask + SQLite).
+"""Сайт котеджу з онлайн-бронюванням (Flask + SQLite). Універсальний шаблон Yalott Studio.
+
+Усе про конкретного клієнта — у config/site.yaml (див. site_config.py), секрети — у .env.
 
 Запуск на своєму комп'ютері:  python app.py   →  http://localhost:5000
+Інший конфіг (приклад):       SITE_CONFIG=config/examples/ramshill.yaml python app.py
 """
 
 import glob
@@ -12,14 +15,13 @@ import time
 from datetime import date, datetime, timedelta
 
 import click
-from flask import Flask, abort, jsonify, redirect, render_template, request, session, url_for
-from werkzeug.security import generate_password_hash
+from flask import Flask, Response, abort, jsonify, redirect, render_template, request, session, url_for
 
 import database as db_
 import gallery
 import notifications
 import pricing as P
-import site_content
+import site_config
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 log = logging.getLogger(__name__)
@@ -128,8 +130,8 @@ def _int(value, default=0):
         return default
 
 
-def validate_booking(body):
-    c = P.CONFIG
+def validate_booking(body, objects, extra_keys, today):
+    """Перевіряє заявку з форми. objects — db_.objects(): максимум гостей і мінімум ночей беруться з бази."""
     name = str(body.get("name") or "").strip()[:80]
     phone = str(body.get("phone") or "").strip()[:32]
     if len(name) < 2:
@@ -137,28 +139,27 @@ def validate_booking(body):
     if not 9 <= len(re.sub(r"\D", "", phone)) <= 15:
         raise db_.BookingError("Вкажіть коректний номер телефону")
 
-    obj = site_content.OBJECT_BY_ID.get(_int(body.get("objectId")))
+    obj = objects.get(_int(body.get("objectId")))
     if obj is None:
         raise db_.BookingError("Оберіть об'єкт для бронювання")
 
     check_in, check_out = body.get("checkIn"), body.get("checkOut")
-    today = today_iso()
     if not _is_date(check_in) or not _is_date(check_out) or check_out <= check_in:
         raise db_.BookingError("Оберіть дати заїзду та виїзду")
     if check_in < today:
         raise db_.BookingError("Дата заїзду вже минула")
     if check_out > (date.fromisoformat(today) + timedelta(days=BOOKING_HORIZON_DAYS)).isoformat():
         raise db_.BookingError("Бронювання відкрите лише на рік уперед")
-    if len(P.nights_between(check_in, check_out)) < c["minNights"]:
-        raise db_.BookingError(f"Мінімальне бронювання — {c['minNights']} доб.")
+    if len(P.nights_between(check_in, check_out)) < obj["minNights"]:
+        raise db_.BookingError(f"«{obj['name']}»: мінімальне бронювання — ночей: {obj['minNights']}")
 
     guests = _int(body.get("guests"))
-    if not 1 <= guests <= obj["max_guests"]:
-        raise db_.BookingError(f"«{obj['name']}»: від 1 до {obj['max_guests']} гостей")
+    if not 1 <= guests <= obj["maxGuests"]:
+        raise db_.BookingError(f"«{obj['name']}»: від 1 до {obj['maxGuests']} гостей")
     extras = body.get("extras") or []
     if not isinstance(extras, list):
         extras = []
-    extras = [k for k in site_content.EXTRA_BY_KEY if k in extras]  # лише відомі, без повторів
+    extras = [k for k in extra_keys if k in extras]  # лише відомі, без повторів
     if not body.get("rules"):
         raise db_.BookingError("Підтвердьте, що ознайомилися з умовами бронювання")
     return {"objectId": obj["id"], "name": name, "phone": phone,
@@ -166,25 +167,61 @@ def validate_booking(body):
             "checkIn": check_in, "checkOut": check_out, "guests": guests, "extras": extras}
 
 
+# ---------- Тема: кольори з конфігу ----------
+
+def _contrast(hex_color):
+    """Колір тексту (темний чи світлий), який читається на цьому тлі."""
+    h = hex_color.lstrip("#")
+    if len(h) == 3:
+        h = "".join(ch * 2 for ch in h)
+    r, g, b = (int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
+    lin = lambda v: v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4  # noqa: E731
+    return "#16130f" if 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b) > 0.4 else "#ffffff"
+
+
+def theme_overrides(brand):
+    """CSS, що перевизначає змінні теми кольорами з конфігу (brand.primary_color / accent_color)."""
+    rules = []
+    if brand["primary_color"]:
+        rules += [f"--primary:{brand['primary_color']}", f"--on-primary:{_contrast(brand['primary_color'])}"]
+    if brand["accent_color"]:
+        rules.append(f"--accent:{brand['accent_color']}")
+    return "html[data-theme]{" + ";".join(rules) + "}" if rules else ""
+
+
+def favicon_svg(brand):
+    letter = (re.sub(r"[^\w]", "", brand["name"]) or "•")[0].upper()
+    bg = brand["primary_color"] or {"dark": "#17181a", "wood": "#3a2a1d", "forest": "#16301f"}[brand["theme"]]
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="{bg}"/>'
+            f'<text x="32" y="44" font-family="Georgia,serif" font-size="36" text-anchor="middle" '
+            f'fill="{_contrast(bg)}">{letter}</text></svg>')
+
+
 # ---------- Застосунок ----------
 
 def create_app(test_config=None):
-    instance_path = os.path.join(BASE_DIR, "instance")
+    test_config = dict(test_config or {})
+    instance_path = os.environ.get("INSTANCE_PATH") or os.path.join(BASE_DIR, "instance")
     app = Flask(__name__, instance_path=instance_path)
+
+    # Конфіг клієнта. Помилка в ньому зупиняє запуск зі зрозумілим поясненням (python manage.py validate).
+    site = site_config.load(test_config.pop("SITE_CONFIG", None))
+    app.extensions["site"] = site
+
     app.config.update(
         SECRET_KEY=secret_key(instance_path),
-        DATABASE=os.environ.get("DATABASE_PATH") or os.path.join(instance_path, "forsethouse.db"),
-        DEMO_DATA=env_flag("DEMO_DATA", default=True),
+        # Окрема база на кожен конфіг: site.yaml → instance/site.db, ramshill.yaml → instance/ramshill.db.
+        DATABASE=os.environ.get("DATABASE_PATH") or os.path.join(instance_path, f"{site.key}.db"),
+        DEMO_DATA=env_flag("DEMO_DATA", default=False),
         SESSION_COOKIE_SAMESITE="Lax",
-        # На HTTPS-сервері (PythonAnywhere) cookie входу передаються лише захищеним каналом.
+        # На HTTPS-сервері cookie входу передаються лише захищеним каналом.
         SESSION_COOKIE_SECURE=env_flag("SESSION_COOKIE_SECURE"),
     )
     app.json.ensure_ascii = False
-    if test_config:
-        app.config.update(test_config)
+    app.config.update(test_config)
 
-    # База й таблиці створюються автоматично під час першого запуску.
-    db_.init_db(app.config["DATABASE"], with_demo=app.config["DEMO_DATA"])
+    # База й таблиці створюються автоматично; з конфігу доливається лише те, чого в базі ще немає.
+    db_.init_db(app.config["DATABASE"], site, with_demo=app.config["DEMO_DATA"], today=now_local().date())
     db_.ensure_admin(app.config["DATABASE"])
     app.teardown_appcontext(db_.close_db)
 
@@ -197,20 +234,27 @@ def create_app(test_config=None):
         d = date.fromisoformat(iso)
         return f"{d.day:02d}.{d.month:02d}"
 
-    # Версія стилів і скриптів для посилань (?v=…): після оновлення сайту браузер і PythonAnywhere
-    # не віддадуть старий style.css разом з новою сторінкою.
+    # Версія стилів і скриптів для посилань (?v=…): після оновлення сайту браузер
+    # не віддасть старий style.css разом з новою сторінкою.
     asset_version = "?v=" + str(max(int(os.path.getmtime(f)) for f in glob.glob(
         os.path.join(BASE_DIR, "static", "*", "*.*")) if f.endswith((".css", ".js"))))
+    brand = site.brand
+    logo = brand["logo"] if gallery.exists(brand["logo"]) else None
+    logo_light = brand["logo_light"] if gallery.exists(brand["logo_light"]) else logo
+    favicon = brand["favicon"] if gallery.exists(brand["favicon"]) else None
+    overrides = theme_overrides(brand)
 
     @app.context_processor
     def inject_globals():
         if "csrf" not in session:
             session["csrf"] = secrets.token_urlsafe(16)
-        return {"csrf_token": session["csrf"], "current_year": now_local().year,
-                "C": P.CONFIG, "site": site_content.SITE, "all_objects": site_content.OBJECTS,
-                "V": asset_version}
+        return {"csrf_token": session["csrf"], "current_year": now_local().year, "site": site,
+                "brand": brand, "contacts": site.contacts, "rules": site.rules, "sections": site.sections,
+                "nav_objects": site.objects, "logo": logo, "logo_light": logo_light, "favicon": favicon,
+                "theme_overrides": overrides, "V": asset_version}
 
-    app.jinja_env.globals["thumb_for"] = gallery.thumb_for  # мініатюри 600 px для галерей і карток
+    app.jinja_env.globals.update(thumb_for=gallery.thumb_for, plural=site_config.plural,
+                                 guests_gen=site_config.guests_gen)
     app.extensions["fh_today"] = lambda: today_iso()  # київська дата для адмінки
     register_routes(app)
 
@@ -222,19 +266,8 @@ def create_app(test_config=None):
     @click.password_option()
     def set_password_command(username, password):
         """Створити адміністратора або змінити йому пароль."""
-        conn = db_.connect(app.config["DATABASE"])
-        conn.execute(
-            """INSERT INTO admin_users (username, password_hash) VALUES (?, ?)
-               ON CONFLICT(username) DO UPDATE SET password_hash = excluded.password_hash""",
-            (username, generate_password_hash(password)))
-        conn.close()
+        db_.set_password(app.config["DATABASE"], username, password)
         print("Пароль збережено для", username)
-
-    @app.cli.command("init-db")
-    def init_db_command():
-        """Створити таблиці (і початкові дані, якщо база порожня)."""
-        db_.init_db(app.config["DATABASE"], with_demo=app.config["DEMO_DATA"])
-        print("Базу даних готово:", app.config["DATABASE"])
 
     return app
 
@@ -244,55 +277,85 @@ def csrf_ok():
     return bool(token) and secrets.compare_digest(token, session.get("csrf", ""))
 
 
-def object_cards(db):
-    """Тексти з site_content + актуальні ціни з бази + фото з папок."""
-    prices = db_.objects(db)
+def object_facts(o):
+    """Короткі факти для картки: гості, спальні, санвузли, кількість одиниць."""
+    pl = site_config.plural
+    facts = [("users", o["guests_text"])]
+    if o.get("bedrooms"):
+        facts.append(("bed", f"{o['bedrooms']} {pl(o['bedrooms'], 'спальня', 'спальні', 'спалень')}"))
+    if o.get("bathrooms"):
+        facts.append(("bath", f"{o['bathrooms']} {pl(o['bathrooms'], 'санвузол', 'санвузли', 'санвузлів')}"))
+    if o["units"] > 1:
+        facts.append(("chalets", f"{o['units']} {pl(o['units'], 'однаковий', 'однакові', 'однакових')}"))
+    return facts
+
+
+def object_cards(db, site):
+    """Тексти з конфігу + актуальні ціни й параметри з бази + фото з папок."""
+    live = {o["key"]: o for o in db_.objects(db).values()}
     cards = []
-    for o in site_content.OBJECTS:
-        p = prices.get(o["id"])
+    for o in site.objects:
+        p = live.get(o["key"])
         if p is None:
             continue
-        cards.append(dict(o, price=p["price"], tiers=p["tiers"], price_from=P.min_price(p),
-                          photos=gallery.photos(o), cover=gallery.cover(o)))
+        card = dict(o, id=p["id"], price=p["price"], tiers=p["tiers"], price_from=P.min_price(p),
+                    units=p["units"], base_guests=p["baseGuests"], max_guests=p["maxGuests"],
+                    extra_guest_price=p["extraGuestPrice"], min_nights=p["minNights"],
+                    guests_text=p["guestsText"], photos=gallery.photos(o["folder"], o["name"]),
+                    cover=gallery.cover(o))
+        card["facts"] = object_facts(card)
+        cards.append(card)
     return cards
 
 
-def common_page_data(db):
-    return {"extras": db_.extras_json(db),
-            "periods_on_request": [p for p in db_.periods(db) if p["price"] is None],
-            "house_rules": site_content.HOUSE_RULES, "reviews": site_content.REVIEWS}
+def common_page_data(db, site, cards):
+    extras = [dict(e, photo_src=gallery.find(site.media("extras"), e["photo"])) for e in db_.extras_list(db)]
+    times = {(c["check_in"], c["check_out"]) for c in cards}
+    return {"extras": extras, "same_times": len(times) <= 1,
+            "min_nights_max": max((c["min_nights"] for c in cards), default=1)}
 
 
 def register_routes(app):
+    site = app.extensions["site"]
+
     @app.get("/")
     def index():
         db = db_.get_db()
-        cards = object_cards(db)
-        featured = next((c for c in cards if c.get("featured")), cards[-1])
-        S = site_content
-        return render_template("index.html", objects=cards, featured=featured, selected=None,
-                               price_from=min(c["price_from"] for c in cards), periods=db_.periods(db),
-                               description=S.DESCRIPTION, about_title=S.ABOUT_TITLE, about_text=S.ABOUT_TEXT,
-                               perks=S.PERKS, nearby=S.NEARBY,
-                               territory={"title": S.TERRITORY_TITLE, "text": S.TERRITORY_TEXT,
-                                          "points": S.TERRITORY_POINTS,
-                                          "photos": gallery.photos({"folder": "territory", "name": "Територія"})},
-                               food={"title": S.FOOD_TITLE, "text": S.FOOD_TEXT,
-                                     "photos": gallery.photos({"folder": "food", "name": "Харчування"})},
-                               **common_page_data(db))
+        cards = object_cards(db, site)
+        if not cards:
+            abort(404)
+        featured = next((c for c in cards if c["featured"]), None)
+        hero = gallery.first(site.media("hero")) or (featured or cards[0])["cover"]
+        og = site.seo["og_image"] if gallery.exists(site.seo["og_image"]) else hero
+        return render_template("index.html", objects=cards, featured=featured, selected=None, hero=hero,
+                               og_image=og, price_from=min(c["price_from"] for c in cards),
+                               periods=db_.periods(db), gallery_photos=gallery.photos(site.media("gallery")),
+                               **common_page_data(db, site, cards))
 
     @app.get("/<slug>")
     def object_page(slug):
         if slug == "admin":  # /admin без скісної риски
             return redirect(url_for("admin.index"))
-        if slug not in site_content.OBJECT_BY_SLUG:
+        if slug not in site.object_by_key:
             abort(404)
         db = db_.get_db()
-        cards = object_cards(db)
-        obj = next(c for c in cards if c["slug"] == slug)
+        cards = object_cards(db, site)
+        obj = next((c for c in cards if c["slug"] == slug), None)
+        if obj is None:
+            abort(404)
         return render_template("object.html", obj=obj, objects=cards, selected=obj,
+                               og_image=obj["cover"] or gallery.first(site.media("hero")),
                                periods=[p for p in db_.periods(db) if p["objectId"] in (None, obj["id"])],
-                               **common_page_data(db))
+                               **common_page_data(db, site, cards))
+
+    @app.get("/favicon.svg")
+    def favicon():
+        return Response(favicon_svg(site.brand), mimetype="image/svg+xml",
+                        headers={"Cache-Control": "public, max-age=86400"})
+
+    @app.get("/robots.txt")
+    def robots():
+        return Response("User-agent: *\nDisallow: /admin/\nDisallow: /api/\n", mimetype="text/plain")
 
     @app.get("/api/availability")
     def availability():
@@ -300,7 +363,7 @@ def register_routes(app):
         today = today_iso()
         last = (date.fromisoformat(today) + timedelta(days=BOOKING_HORIZON_DAYS)).isoformat()
         return jsonify(busy=db_.busy_json(db), objects=db_.objects_json(db), periods=db_.periods(db),
-                       extras=db_.extras_json(db), config=P.CONFIG, today=today, lastDate=last)
+                       extras=db_.extras_list(db), config=site.public_rules(), today=today, lastDate=last)
 
     @app.post("/api/bookings")
     def book():
@@ -313,10 +376,11 @@ def register_routes(app):
             return jsonify(ok=False, error="Забагато заявок. Спробуйте пізніше або зателефонуйте нам."), 429
         db = db_.get_db()
         try:
-            booking = db_.create_booking(db, validate_booking(body))
+            data = validate_booking(body, db_.objects(db), list(site.extra_by_key), today_iso())
+            booking = db_.create_booking(db, data)
         except db_.BookingError as e:
             return jsonify(ok=False, error=str(e)), e.status
-        notification_id = notifications.queue(db, booking)
+        notification_id = notifications.queue(db, booking, site.brand["name"])
         notifications.send_async(app.config["DATABASE"], notification_id)
         return jsonify(ok=True, booking=booking), 201
 
@@ -327,7 +391,15 @@ def register_routes(app):
         return render_template("404.html"), 404
 
 
-app = create_app()
+def _create_default_app():
+    try:
+        return create_app()
+    except site_config.ConfigError as exc:
+        raise SystemExit(f"\n{exc}\n\nВиправте конфіг і перевірте: python manage.py validate\n")
+
+
+# Для wsgi-сервера (gunicorn, PythonAnywhere) і запуску `python app.py`.
+app = None if os.environ.get("YALOTT_NO_APP") == "1" else _create_default_app()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
