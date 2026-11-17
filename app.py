@@ -14,10 +14,12 @@ import secrets
 from datetime import date, datetime, timedelta
 
 import click
-from flask import Flask, Response, abort, jsonify, redirect, render_template, request, session, url_for
+from flask import (Flask, Response, abort, jsonify, redirect, render_template, request, send_file, session,
+                   url_for)
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 import database as db_
+import demo
 import gallery
 import notifications
 import pricing as P
@@ -243,20 +245,40 @@ def create_app(test_config=None):
     favicon = brand["favicon"] if gallery.exists(brand["favicon"]) else None
     overrides = theme_overrides(brand)
 
+    demo_on = demo.enabled(site)
+    demo_id = demo.fingerprint(site, key) if demo_on else ""
+    demo_hosts = ",".join(demo.host_hash(h) for h in demo.allowed_hosts(site)) if demo_on else ""
+
+    def media_url(src, external=False):
+        """Адреса фото. У демо — через /demo-img/: з вшитим водяним знаком, оригінали недоступні."""
+        if demo_on:
+            return url_for("demo_image", src=src, _external=external)
+        return url_for("static", filename=src, _external=external)
+
     @app.context_processor
     def inject_globals():
         if "csrf" not in session:
             session["csrf"] = secrets.token_urlsafe(16)
+        info = None
+        if demo_on:
+            grant = session.get("demo") if isinstance(session.get("demo"), dict) else {}
+            until = grant.get("exp")
+            info = {"id": demo_id, "hosts": demo_hosts, "mark": demo.invisible_mark(demo_id),
+                    "domain": site.demo["domain"], "noindex": demo.NOINDEX,
+                    "until": datetime.fromtimestamp(until, TZ).strftime("%d.%m.%Y") if isinstance(until, int) else ""}
         return {"csrf_token": session["csrf"], "current_year": now_local().year, "site": site,
                 "brand": brand, "contacts": site.contacts, "rules": site.rules, "sections": site.sections,
                 "nav_objects": site.objects, "logo": logo, "logo_light": logo_light, "favicon": favicon,
-                "theme_css": bool(overrides), "V": asset_version}
+                "theme_css": bool(overrides), "V": asset_version, "demo": info}
 
     app.jinja_env.globals.update(thumb_for=gallery.thumb_for, plural=site_config.plural,
-                                 guests_gen=site_config.guests_gen)
+                                 guests_gen=site_config.guests_gen, media_url=media_url)
     app.extensions["fh_today"] = lambda: today_iso()  # київська дата для адмінки
     app.extensions["theme_css"] = overrides
+    app.extensions["demo_id"] = demo_id
     register_routes(app)
+    if demo_on:
+        register_demo(app, site, key)
 
     @app.after_request
     def add_security_headers(response):
@@ -264,6 +286,12 @@ def create_app(test_config=None):
         admin = request.path.startswith("/admin")
         for name, value in security.security_headers(request.is_secure, admin=admin).items():
             response.headers.setdefault(name, value)
+        if demo_on:      # демо ніде не індексується й не кешується спільними кешами
+            response.headers["X-Robots-Tag"] = demo.NOINDEX
+            if request.path.startswith("/demo-img/"):
+                response.headers["Cache-Control"] = "private, max-age=3600"
+            elif not request.path.startswith(("/static/css/", "/static/js/")):
+                response.headers["Cache-Control"] = "private, no-store"
         return response
 
     import admin
@@ -369,6 +397,8 @@ def register_routes(app):
 
     @app.get("/robots.txt")
     def robots():
+        if demo.enabled(site):
+            return Response("User-agent: *\nDisallow: /\n", mimetype="text/plain")
         return Response("User-agent: *\nDisallow: /admin/\nDisallow: /api/\n", mimetype="text/plain")
 
     @app.get("/api/availability")
@@ -394,7 +424,8 @@ def register_routes(app):
             booking = db_.create_booking(db, data)
         except db_.BookingError as e:
             return jsonify(ok=False, error=str(e)), e.status
-        notification_id = notifications.queue(db, booking, site.brand["name"])
+        name = ("🧪 ДЕМО · " if demo.enabled(site) else "") + site.brand["name"]
+        notification_id = notifications.queue(db, booking, name)
         notifications.send_async(app.config["DATABASE"], notification_id)
         return jsonify(ok=True, booking=booking), 201
 
@@ -403,6 +434,75 @@ def register_routes(app):
         if request.path.startswith(("/api/", "/admin/api/")):
             return jsonify(ok=False, error="Not found"), 404
         return render_template("404.html"), 404
+
+
+def register_demo(app, site, secret):
+    """Демо-режим (demo.enabled у конфігу): доступ за посиланням, пароль, фото з водяним знаком, свій домен."""
+    cache_dir = os.path.join(app.instance_path, "demo-cache")
+    static_dir = os.path.join(BASE_DIR, "static")
+
+    def locked(reason, status=403):
+        return render_template("demo_locked.html", reason=reason, studio=site.studio), status
+
+    @app.before_request
+    def demo_gate():
+        if not demo.host_ok(site, request.host):
+            return locked("domain")
+        path = request.path
+        # оригінали фото в демо не віддаються — лише через /demo-img/ з водяним знаком
+        if path.startswith("/static/media/") and not path.startswith("/static/media/brand/"):
+            abort(404)
+        if demo.is_open_path(path):
+            return None
+        reason = demo.access(site, session, secret)
+        if reason == "password":
+            return redirect(url_for("demo_password"))
+        if reason:
+            if path.startswith(("/api/", "/admin/api/")):
+                return jsonify(ok=False, error="Демо-доступ завершився. Відкрийте посилання ще раз."), 403
+            return locked(reason)
+        return None
+
+    @app.get("/demo/<token>")
+    def demo_enter(token):
+        reason, expires = demo.read_link_token(site, secret, token)
+        if reason:
+            return locked(reason)
+        session["demo"] = {"v": site.demo["link_version"], "exp": expires,
+                           "pw": session.get("demo", {}).get("pw", "") if isinstance(session.get("demo"), dict) else ""}
+        session.permanent = True
+        return redirect(url_for("demo_password") if demo.access(site, session, secret) == "password" else url_for("index"))
+
+    @app.route("/demo/password", methods=["GET", "POST"])
+    def demo_password():
+        grant = session.get("demo")
+        if not isinstance(grant, dict) or demo.access(site, session, secret) not in (None, "password"):
+            return locked(demo.access(site, session, secret) or "no-link")
+        if not demo.password():
+            return redirect(url_for("index"))
+        error, status = "", 200
+        if request.method == "POST":
+            db = db_.get_db()
+            ip = client_ip()
+            if not security.token_ok(request.form.get("csrf"), session.get("csrf")):
+                error, status = "Сесія застаріла — спробуйте ще раз.", 400
+            elif security.wait_seconds(db, "demo-ip", ip, demo.DEMO_PASSWORD_ATTEMPTS, security.LOGIN_WINDOW):
+                error, status = "Забагато спроб. Спробуйте пізніше.", 429
+            elif security.token_ok(request.form.get("password"), demo.password()):
+                grant["pw"] = demo.password_mark(secret)
+                session["demo"] = grant
+                return redirect(url_for("index"))
+            else:
+                security.record(db, "demo-ip", ip)
+                error, status = "Неправильний пароль.", 401
+        return render_template("demo_locked.html", reason="password", error=error, studio=site.studio), status
+
+    @app.get("/demo-img/<path:src>")
+    def demo_image(src):
+        path = demo.cached_watermark(static_dir, cache_dir, src, app.extensions["demo_id"], site.demo["domain"])
+        if path is None:
+            abort(404)
+        return send_file(path, mimetype="image/webp", max_age=0, conditional=True)
 
 
 def _create_default_app():

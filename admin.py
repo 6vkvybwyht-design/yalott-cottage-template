@@ -89,7 +89,10 @@ def login():
             ok = check_password_hash(user["password_hash"] if user else _DUMMY_HASH, request.form.get("password") or "")
             if user and ok:
                 security.clear_login_failures(db, ip, username)
+                demo_grant = session.get("demo")      # доступ до демо за посиланням лишається після входу
                 session.clear()
+                if demo_grant:
+                    session["demo"] = demo_grant
                 session.permanent = True   # вхід діє 12 год (PERMANENT_SESSION_LIFETIME), потім — знову пароль
                 session["admin_id"] = user["id"]
                 session["admin_name"] = user["username"]
@@ -113,7 +116,10 @@ def login():
 def logout():
     # CSRF і тут: інакше чужий сайт міг би «викидати» власника з адмінки.
     if security.token_ok(request.form.get("csrf"), session.get("csrf")):
+        demo_grant = session.get("demo")
         session.clear()
+        if demo_grant:
+            session["demo"] = demo_grant
     return redirect(url_for("admin.login"))
 
 

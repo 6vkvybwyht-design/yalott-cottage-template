@@ -8,6 +8,8 @@
     python manage.py seed           залити конфіг у базу (безпечно запускати повторно)
     python manage.py photos         обробити фото з media/ → static/media/
     python manage.py check          чи все готово до деплою
+    python manage.py demo-link      посилання на демо-версію з терміном дії (demo.enabled у конфігу)
+    python manage.py demo-find ФАЙЛ чи є в збереженій сторінці / тексті позначка нашого демо
     python manage.py set-password   змінити пароль адмінки
 
 Інший конфіг: додайте  --config config/examples/ramshill.yaml  (або змінну SITE_CONFIG).
@@ -197,6 +199,9 @@ def cmd_check(args):
             text = open(path, encoding="utf-8").read()
             if "ЗАМІНИТИ" in text or "000 00 00" in text or "0000000" in text:
                 bad("у конфігу лишились заглушки («ЗАМІНИТИ» або телефон із нулів) — впишіть справжні дані")
+            if cfg.demo["enabled"]:
+                note(f"сайт у ДЕМО-режимі (demo.enabled: true, домен {cfg.demo['domain']}): водяні знаки, noindex, "
+                     f"доступ лише за посиланням. Для здачі клієнту — demo.enabled: false")
             pending = text.count("ПЕРЕВІРИТИ:")
             if pending:
                 note(f"у конфігу {pending} позначок «ПЕРЕВІРИТИ» з розбору чату — перегляньте й приберіть")
@@ -508,6 +513,15 @@ def render_config(d, source="python manage.py new-client"):
     add("  - q: Як забронювати?")
     add("    a: Оберіть дати в календарі й залиште заявку — ми зателефонуємо, підтвердимо деталі й надішлемо реквізити.")
     add("")
+    add("# Демо-версія для показу клієнту до оплати: водяні знаки, noindex, доступ за посиланням із терміном дії")
+    add("# (python manage.py demo-link). Пароль демо, якщо потрібен, — лише в .env (див. .env.example).")
+    add("# Після оплати клієнтом — enabled: false.")
+    add("demo:")
+    add("  enabled: false")
+    add('  domain: ""                    # адреса демо на сервері, напр. назва.1-2-3-4.sslip.io')
+    add("  days: 14                      # скільки діє посилання")
+    add("  link_version: 1               # збільште, щоб скасувати всі видані посилання")
+    add("")
     add("seo:")
     add(f"  title: {q(d['seo_title'])}")
     add(f"  description: {q(d['description'])}")
@@ -686,6 +700,76 @@ def cmd_new_client(args):
     return 1 if errors else 0
 
 
+# ---------- демо-версія ----------
+
+def cmd_demo_link(args):
+    """Посилання на демо з терміном дії. Потрібен той самий SECRET_KEY, що й у сайту (запускати на сервері)."""
+    import demo
+    import security
+    cfg = _load(args)
+    if not cfg.demo["enabled"]:
+        print(f"\nДемо-режим вимкнено. Увімкніть у {_rel(cfg.path)}:\n\n"
+              "demo:\n  enabled: true\n  domain: НАЗВА.1-2-3-4.sslip.io   # адреса демо на сервері\n")
+        return 1
+    _load_env()
+    try:
+        secret = security.require_secret_key(os.environ.get("SECRET_KEY"))
+    except security.SecurityConfigError as exc:
+        print(f"\n{exc}\n")
+        return 1
+    days = args.days or cfg.demo["days"]
+    token, expires = demo.make_link_token(cfg, secret, days=days)
+    from datetime import datetime
+    until = datetime.fromtimestamp(expires).strftime("%d.%m.%Y %H:%M")
+    print(f"\nПосилання на демо «{cfg.brand['name']}» (діє {days} дн., до {until}):\n")
+    print(f"https://{cfg.demo['domain']}/demo/{token}\n")
+    if demo.password():
+        print("Потрібен пароль (DEMO_PASSWORD з .env) — надішліть його клієнту окремим повідомленням.")
+    fid = demo.fingerprint(cfg, secret)
+    print(f"Ідентифікатор демо (для доказу авторства): yalott-demo:{fid}")
+    if not args.no_warm:
+        instance = os.environ.get("INSTANCE_PATH") or os.path.join(BASE_DIR, "instance")
+        count = demo.warm(cfg, os.path.join(BASE_DIR, "static"), os.path.join(instance, "demo-cache"), fid)
+        print(f"Фото з водяним знаком підготовлено заздалегідь: {count}.")
+    print(f"Скасувати всі видані посилання: збільште demo.link_version у {_rel(cfg.path)} "
+          f"(зараз {cfg.demo['link_version']}) і перезапустіть сайт.\n")
+    return 0
+
+
+def cmd_demo_find(args):
+    """Шукає позначки нашого демо в збереженій сторінці, тексті чи фото чужого сайту."""
+    import demo
+    found, where = [], args.file or "вставлений текст"
+    if args.file and args.file.lower().endswith((".webp", ".jpg", ".jpeg", ".png")):
+        from PIL import Image
+        with Image.open(args.file) as im:
+            exif = im.getexif()
+            text = " ".join(str(v) for v in exif.values())
+    elif args.file:
+        with open(args.file, encoding="utf-8", errors="replace") as f:
+            text = f.read()
+    else:
+        if sys.stdin.isatty():
+            print("Вставте текст чи HTML з підозрілого сайту, потім Ctrl+D:\n")
+        text = sys.stdin.read()
+    found = demo.find_marks(text)
+    if not found:
+        print(f"\nУ «{where}» позначок демо Yalott Studio не знайдено.\n")
+        return 1
+    print(f"\nУ «{where}» знайдено позначку демо: " + ", ".join(f"yalott-demo:{f}" for f in found))
+    try:
+        cfg = site_config.load(_path(args))
+        _load_env()
+        mine = demo.fingerprint(cfg, os.environ.get("SECRET_KEY", ""))
+        if mine in found:
+            print(f"Це демо «{cfg.brand['name']}» ({_rel(cfg.path)}) — збігається з ідентифікатором, "
+                  f"який можна відтворити лише з нашим SECRET_KEY.")
+    except Exception:
+        pass
+    print("Збережіть файл і посилання на сторінку як доказ.\n")
+    return 0
+
+
 # ---------- анкета в чаті ----------
 
 def cmd_anketa(args):
@@ -808,6 +892,11 @@ def main(argv=None):
     p.add_argument("--force", action="store_true", help="обробити всі фото заново")
     p.add_argument("--enhance", action="store_true", help="трохи підняти яскравість, контраст і насиченість")
     command("check", cmd_check, "перевірити готовність до деплою")
+    p = command("demo-link", cmd_demo_link, "посилання на демо-версію з терміном дії")
+    p.add_argument("--days", type=int, choices=range(1, 91), metavar="ДНІВ", help="скільки діє посилання (1–90)")
+    p.add_argument("--no-warm", action="store_true", help="не готувати фото з водяним знаком заздалегідь")
+    p = command("demo-find", cmd_demo_find, "знайти позначку нашого демо в чужій сторінці, тексті чи фото")
+    p.add_argument("file", nargs="?", help="збережена сторінка (.html), текст або фото")
     p = command("set-password", cmd_set_password, "змінити пароль адмінки")
     p.add_argument("username", nargs="?", default="admin")
 

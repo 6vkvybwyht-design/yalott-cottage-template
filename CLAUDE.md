@@ -62,6 +62,13 @@
 - Зміни бази — лише додавання (`CREATE TABLE IF NOT EXISTS`, нові необов'язкові колонки). Нічого, що видаляє
   чи переписує дані: на шаблоні працюють живі клієнти.
 
+### 6. Демо-режим — фото лише через `media_url()`
+
+У демо (`demo.enabled`) оригінали фото не віддаються, а кожне фото йде через `/demo-img/` з вшитим водяним знаком.
+Тому в шаблонах фото підключається **лише** через `media_url(src)`, ніколи `url_for('static', filename=…)`
+(тест `test_templates_load_photos_only_through_media_url`). Логотип і favicon — у `media/brand/`: вони відкриті й у демо.
+Пароль демо — `DEMO_PASSWORD` у `.env`, не в конфігу.
+
 ## Команди
 
 ```bash
@@ -70,6 +77,8 @@ python manage.py anketa          # опитувальник для клієнт�
 python manage.py from-chat chat.txt   # відповіді з чату → config/site.yaml + дозапит
 python manage.py validate        # перевірити конфіг
 python manage.py check           # готовність до деплою
+python manage.py demo-link       # посилання на демо з терміном дії (на сервері)
+python manage.py demo-find ФАЙЛ  # чи це копія нашого демо
 SITE_CONFIG=config/examples/ramshill.yaml DEMO_DATA=1 python app.py   # приклад
 ```
 
