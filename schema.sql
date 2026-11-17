@@ -108,3 +108,15 @@ CREATE TABLE IF NOT EXISTS seed_log (
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (kind, key)
 );
+
+-- Ліміти (security.py): невдалі входи в адмінку й заявки на бронювання з однієї IP.
+-- Лише технічні записи: старші за добу видаляються самі; бронювань і даних гостей тут немає.
+-- Таблиця тільки додається — наявні дані сайту не змінюються.
+CREATE TABLE IF NOT EXISTS rate_events (
+    id    INTEGER PRIMARY KEY,
+    kind  TEXT NOT NULL,      -- login-ip | login-user | booking-ip
+    key   TEXT NOT NULL,      -- IP або логін
+    at    REAL NOT NULL       -- час (секунди Unix)
+);
+CREATE INDEX IF NOT EXISTS idx_rate_events ON rate_events (kind, key, at);
+CREATE INDEX IF NOT EXISTS idx_rate_events_at ON rate_events (at);

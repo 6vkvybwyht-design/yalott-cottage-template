@@ -1,6 +1,7 @@
 # Деплой
 
-Спершу — PythonAnywhere (основний варіант), нижче — що змінити для VPS.
+Основний варіант — наш VPS через **yalott-server** (`new-site`, `set-domain`, `secure-site`).
+Запасний — PythonAnywhere.
 
 У коді немає захардкоджених шляхів: усе, що залежить від сервера, задається змінними оточення
 (файл `.env` у папці проєкту). Повний список — у `.env.example`.
@@ -14,9 +15,142 @@ python manage.py check
 і закомітьте `config/site.yaml` та `static/media/`. Файл `.env` у git не потрапляє — на сервері його
 створюєте окремо.
 
+**Безпека вмикається сама** для кожного сайту, ручних кроків у коді немає (докладно — розділ
+«Безпека» нижче): ліміт підбору пароля адмінки, справжні IP за Caddy, CSRF, сесія 12 год, Content-Security-Policy,
+права на базу. Від вас — лише `secure-site` і `security-check` на сервері.
+
 ---
 
-## PythonAnywhere
+## VPS через yalott-server
+
+Усі команди виконуються **на сервері** через SSH, від користувача з `sudo`. Нижче `НАЗВА` — коротка
+назва сайту латиницею (як у `sudo status`), `ДОМЕН` — домен клієнта.
+Сайт лежить у `/home/yalott/sites/НАЗВА`, працює від користувача `yalott`.
+
+### 1. Новий сайт
+
+Спершу на GitHub: **Use this template** → репозиторій клієнта (напр. `6vkvybwyht-design/ramshill-site`).
+
+```bash
+sudo new-site НАЗВА 6vkvybwyht-design/РЕПОЗИТОРІЙ
+```
+
+Скрипт сам:
+
+- клонує код, ставить залежності, запускає gunicorn за Caddy на `127.0.0.1`;
+- створює `.env` з `.env.example`, **генерує `SECRET_KEY`** і ставить `SESSION_COOKIE_SECURE=1`;
+- ставить права `.env` — 600, а сервіс — `UMask=0077`, тож база й тека `instance` створюються з правами 600/700;
+- відкриває сайт за тестовою адресою `https://НАЗВА.<IP-з-дефісами>.sslip.io`.
+
+Коли скрипт відкриє `.env` у редакторі, заповніть:
+
+| Змінна | Значення |
+|---|---|
+| `ADMIN_USERNAME`, `ADMIN_PASSWORD` | логін і пароль адмінки (пароль від 8 символів) |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | бот сайту від @BotFather і chat id власника (не бот сервера!) |
+| `DEMO_DATA` | `1` — поки показуєте клієнту, `0` — для робочого сайту |
+| `BEHIND_PROXY` | `1` (вже стоїть) |
+
+Не заповнили `ADMIN_PASSWORD`? На робочому сайті буде створено випадковий пароль — він є в журналі:
+`sudo site-logs НАЗВА`. Відомого всім пароля `demo2026` на робочому сайті немає.
+
+### 2. Перевірка сайту на сервері
+
+```bash
+sudo -u yalott bash -c 'cd /home/yalott/sites/НАЗВА && .venv/bin/python manage.py check'
+```
+
+### 3. Домен
+
+Коли A-запис домену вказує на IP сервера:
+
+```bash
+sudo set-domain НАЗВА ДОМЕН
+```
+
+### 4. Захист сайту (обов'язково)
+
+Домени клієнтів зазвичай **не** за Cloudflare, тому з `--no-cloudflare`. Спершу подивіться, що зміниться:
+
+```bash
+sudo secure-site НАЗВА --no-cloudflare --dry-run
+```
+
+```bash
+sudo secure-site НАЗВА --no-cloudflare
+```
+
+`secure-site` додає HSTS, прибирає заголовок `Server` і підключає файл заголовків
+`security/НАЗВА.caddy` або базовий `default.caddy`. Content-Security-Policy сайт віддає **сам**
+(`security.py`), тому окремий файл заголовків для шаблону не потрібен.
+
+Потім — звіт про захист сервера (нічого не змінює):
+
+```bash
+sudo security-check
+```
+
+У звіті для цього сайту мають бути ✔: `.env` (600), база `instance/*.db` (600), тека `instance` (700).
+Якщо ні — виправте командою з підказки або:
+
+```bash
+sudo chmod 700 /home/yalott/sites/НАЗВА/instance && sudo chmod 600 /home/yalott/sites/НАЗВА/instance/*.db /home/yalott/sites/НАЗВА/.env
+```
+
+### 5. Чекліст після запуску
+
+Заголовки безпеки (має бути `content-security-policy` з `script-src 'self'`, `strict-transport-security`,
+`x-frame-options`, `x-content-type-options`):
+
+```bash
+curl -sI https://ДОМЕН/ | grep -iE 'content-security-policy|strict-transport|x-frame-options|x-content-type'
+```
+
+Адмінка не індексується:
+
+```bash
+curl -sI https://ДОМЕН/admin/login | grep -i x-robots-tag
+```
+
+У браузері:
+
+1. Головна й сторінка кожного котеджу відкриваються, календар і карта працюють
+   (в інструментах розробника, вкладка Console, немає повідомлень «Refused to … Content Security Policy»).
+2. Вхід в адмінку працює; на сторінці входу **немає** підказки «Демо-доступ».
+3. Адмінка → **«Надіслати тестове сповіщення»** — повідомлення прийшло в Telegram власника.
+4. Тестова заявка з сайту → сповіщення прийшло; скасуйте її в адмінці.
+5. Захист від підбору пароля: 5 разів неправильний пароль → «Забагато невдалих спроб».
+   З вашої IP вхід відкриється через 15 хв (або увійдіть з іншої мережі, напр. з телефона через мобільний інтернет).
+6. Перед запуском для гостей: `DEMO_DATA=0` у `.env`, прибрати демо-дані й перезапустити:
+
+```bash
+sudo -u yalott bash -c 'cd /home/yalott/sites/НАЗВА && .venv/bin/python manage.py seed --clear-demo'
+```
+
+```bash
+sudo deploy НАЗВА
+```
+
+### Оновлення сайту
+
+```bash
+sudo deploy НАЗВА
+```
+
+`deploy` робить бекап бази, `git pull`, ставить залежності й перезапускає сайт. Після зміни `.env` —
+теж `sudo deploy НАЗВА`. Ціни, змінені власником в адмінці, оновлення не чіпає.
+
+### Зміна пароля адмінки
+
+```bash
+sudo -u yalott bash -c 'cd /home/yalott/sites/НАЗВА && .venv/bin/python manage.py set-password admin'
+```
+
+Після зміни пароля всі старі входи в адмінку (на всіх пристроях) стають недійсними.
+
+---
+
+## PythonAnywhere (запасний варіант)
 
 Нижче `USER` — ваш логін на PythonAnywhere, `REPO` — адреса репозиторію клієнта.
 Проєкт кладемо в папку `~/site`.
@@ -57,16 +191,24 @@ python3 -c "import secrets; print(secrets.token_hex(32))"
 
 | Змінна | Значення |
 |---|---|
-| `SECRET_KEY` | рядок з команди вище |
+| `SECRET_KEY` | рядок з команди вище. **Обов'язково** — без нього сайт не запуститься |
 | `ADMIN_USERNAME`, `ADMIN_PASSWORD` | логін і пароль адмінки (пароль від 8 символів) |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | бот від @BotFather і chat id власника |
 | `DEMO_DATA` | `1` — поки показуєте клієнту, `0` — для робочого сайту |
-| `SESSION_COOKIE_SECURE` | `1` |
+| `SESSION_COOKIE_SECURE` | порожньо або `1` (cookie входу лише через HTTPS) |
+| `BEHIND_PROXY` | `1` — PythonAnywhere працює через свій вебсервер; без цього ліміти рахуватимуть його IP |
 
 ### 3. База й перевірка
 
 ```bash
 .venv/bin/python manage.py seed
+```
+
+База містить персональні дані гостей, тому сайт сам ставить права: тека `instance` — 700, файл бази — 600
+(під час кожного запуску). Перевірити або виправити вручну:
+
+```bash
+chmod 700 ~/site/instance && chmod 600 ~/site/instance/*.db ~/site/.env
 ```
 
 ```bash
@@ -145,150 +287,39 @@ cp ~/site/instance/site.db ~/backup-$(date +%F).db
 
 ---
 
-## VPS (Ubuntu / Debian)
-
-Код той самий. Змінюються лише: хто запускає застосунок (gunicorn замість WSGI-файлу PythonAnywhere),
-хто віддає статику й HTTPS (nginx), і де лежать дані — це задається в `.env`.
-
-### 1. Код і залежності
-
-```bash
-sudo adduser --system --group --home /srv/cottage cottage
-```
-
-```bash
-sudo -u cottage git clone REPO /srv/cottage/site
-```
-
-```bash
-cd /srv/cottage/site && sudo -u cottage python3 -m venv .venv
-```
-
-```bash
-sudo -u cottage .venv/bin/pip install -r requirements.txt gunicorn
-```
-
-### 2. `.env`
-
-Те саме, що для PythonAnywhere, плюс за бажанням — шляхи. Усі вони необов'язкові:
-без них дані лежать у `instance/` всередині проєкту.
-
-```ini
-SECRET_KEY=...
-ADMIN_PASSWORD=...
-TELEGRAM_BOT_TOKEN=...
-TELEGRAM_CHAT_ID=...
-DEMO_DATA=0
-SESSION_COOKIE_SECURE=1
-
-# дані поза папкою з кодом — зручно для бекапів і оновлень
-INSTANCE_PATH=/var/lib/cottage
-# або лише файл бази:
-# DATABASE_PATH=/var/lib/cottage/site.db
-# інший конфіг:
-# SITE_CONFIG=config/site.yaml
-# сповіщення одразу в запиті (за замовчуванням на VPS — у фоновому потоці):
-# NOTIFY_SYNC=1
-```
-
-Якщо задали `INSTANCE_PATH`:
-
-```bash
-sudo install -d -o cottage -g cottage /var/lib/cottage
-```
-
-```bash
-sudo -u cottage .venv/bin/python manage.py seed
-```
-
-```bash
-sudo -u cottage .venv/bin/python manage.py check
-```
-
-### 3. gunicorn як сервіс
-
-`/etc/systemd/system/cottage.service`:
-
-```ini
-[Unit]
-Description=Cottage site
-After=network.target
-
-[Service]
-User=cottage
-Group=cottage
-WorkingDirectory=/srv/cottage/site
-ExecStart=/srv/cottage/site/.venv/bin/gunicorn --workers 2 --bind 127.0.0.1:8000 wsgi:app
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Змінні з `.env` застосунок читає сам — дублювати їх у сервісі не потрібно.
-Кілька воркерів безпечні: захист від подвійного бронювання працює на рівні бази (транзакція SQLite),
-а не пам'яті процесу.
-
-```bash
-sudo systemctl enable --now cottage
-```
-
-### 4. nginx і HTTPS
-
-`/etc/nginx/sites-available/cottage`:
-
-```nginx
-server {
-    server_name example.com www.example.com;
-
-    location /static/ {
-        alias /srv/cottage/site/static/;
-        expires 30d;
-    }
-    location / {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $remote_addr;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
-```bash
-sudo ln -s /etc/nginx/sites-available/cottage /etc/nginx/sites-enabled/ && sudo nginx -t && sudo systemctl reload nginx
-```
-
-```bash
-sudo certbot --nginx -d example.com -d www.example.com
-```
-
-### 5. Оновлення й бекап
-
-```bash
-cd /srv/cottage/site && sudo -u cottage git pull && sudo -u cottage .venv/bin/python manage.py seed && sudo systemctl restart cottage
-```
-
-Бекап — один файл бази (`/var/lib/cottage/site.db` або `instance/site.db`). Щодня через cron:
-
-```bash
-sqlite3 /var/lib/cottage/site.db ".backup '/var/backups/cottage-$(date +\%F).db'"
-```
-
-### Кілька сайтів на одному VPS
-
-Окрема папка, окремий `.env`, окремий сервіс і порт на кожного клієнта.
-Бази не перетинаються: у кожного проєкту свій `INSTANCE_PATH`.
-
 ---
+
+## Безпека: що вмикається само
+
+Нічого не потрібно налаштовувати — це працює на кожному сайті з шаблону:
+
+| Що | Як |
+|---|---|
+| Підбір пароля адмінки | 5 невдалих спроб з однієї IP або 10 на один логін за 15 хв → пауза 15 хв. Лічильник у базі (спільний для всіх воркерів gunicorn), без `sleep`, який гальмував би сайт |
+| Справжні IP за Caddy | ProxyFix бере IP з останнього запису `X-Forwarded-For`, який дописав Caddy; підроблений заголовок не обходить ліміти. `BEHIND_PROXY=1` |
+| CSRF | токен на всіх формах і запитах: вхід, вихід, бронювання, адмінка |
+| Сесія адмінки | 12 год; зміна пароля виганяє всі старі сесії; cookie `Secure`, `HttpOnly`, `SameSite=Lax` |
+| Content-Security-Policy | лише власні скрипти й стилі, без вбудованих `<script>`, `onclick=`, `<style>`; шрифти Google Fonts, рамка — лише Google Maps |
+| `SECRET_KEY` | лише з `.env`; без нього (чи з прикладом на кшталт `change-me`) сайт не запускається |
+| Права на базу | тека `instance` — 700, база — 600; виправляються самі під час кожного запуску |
+| Заявки на бронювання | 10 за 10 хв з однієї IP; усі поля перевіряються на сервері, керівні символи прибираються; запит понад 256 КБ відхиляється |
+| Посилання iCal (v2) | лише `https://` на адреси в інтернеті (не на сам сервер чи локальну мережу), з перевіркою переадресацій |
+
+Додаєте на сайт зовнішній сервіс (аналітика, відео, віджет)? Його адресу треба дописати в
+`content_security_policy()` у `security.py`, інакше браузер його заблокує.
 
 ## Якщо щось не так
 
 | Симптом | Причина й рішення |
 |---|---|
+| Сайт не стартує, у журналі «Не задано SECRET_KEY» | у `.env` порожній `SECRET_KEY` — згенеруйте: `python3 -c "import secrets; print(secrets.token_hex(32))"`, впишіть і `sudo deploy НАЗВА` |
 | Сайт не стартує, у журналі «Конфіг … містить помилки» | `python manage.py validate` покаже, що виправити |
 | «База … створена старою версією сайту» | у `DATABASE_PATH` лежить база від старого сайту — вкажіть інший файл |
-| В адмінку пускає `admin / demo2026` | не задано `ADMIN_PASSWORD` у `.env`; задайте й перезапустіть |
+| Не можу увійти в адмінку на своєму комп'ютері (http://localhost) | поставте `SESSION_COOKIE_SECURE=0` у локальному `.env` (лише на своєму комп'ютері!) |
+| «Забагато невдалих спроб» у власника | зачекайте 15 хв або увійдіть з іншої мережі; при потребі змініть пароль командою `set-password` |
+| Не знаю пароль адмінки | `sudo site-logs НАЗВА` (випадковий пароль, якщо `ADMIN_PASSWORD` не задали) або `set-password` |
+| У браузері не працює новий зовнішній віджет | його блокує Content-Security-Policy — допишіть адресу в `security.py` |
 | Не приходять сповіщення | адмінка → «Надіслати тестове сповіщення» покаже точну помилку Telegram |
 | Змінили ціну в конфігу, а на сайті стара | так і задумано: ціни після першого запуску живуть у базі. Змініть в адмінці або `seed --reset` |
 | Замість фото заглушки | немає файлів у `static/media/objects/<id>/` — запустіть `python manage.py photos` і закомітьте результат |
-| Після оновлення старі стилі | перезапустіть застосунок (Reload) — версія стилів у посиланнях оновиться |
+| Після оновлення старі стилі | перезапустіть застосунок — версія стилів у посиланнях оновиться |

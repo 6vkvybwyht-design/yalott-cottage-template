@@ -205,10 +205,16 @@ def cmd_check(args):
         bad("немає файлу .env. Створіть: cp .env.example .env — і заповніть")
     _load_env()
     env = lambda k: os.environ.get(k, "").strip()  # noqa: E731
-    if len(env("SECRET_KEY")) >= 32:
-        ok("SECRET_KEY задано")
-    else:
-        bad("SECRET_KEY порожній або короткий. Згенеруйте: python -c \"import secrets; print(secrets.token_hex(32))\"")
+    import security
+    try:
+        security.require_secret_key(env("SECRET_KEY"))
+        if security.weak_secret_key(env("SECRET_KEY")):
+            bad("SECRET_KEY коротший за 32 символи. Згенеруйте: python -c \"import secrets; print(secrets.token_hex(32))\"")
+        else:
+            ok("SECRET_KEY задано")
+    except security.SecurityConfigError:
+        bad("SECRET_KEY не задано — без нього сайт не запуститься. "
+            "Згенеруйте: python -c \"import secrets; print(secrets.token_hex(32))\"")
     password = os.environ.get("ADMIN_PASSWORD", "")
     if len(password) >= 8 and password not in ("demo2026", "password", "12345678"):
         ok("ADMIN_PASSWORD задано")
@@ -223,8 +229,10 @@ def cmd_check(args):
              "(прибрати наявні: python manage.py seed --clear-demo)")
     else:
         ok("DEMO_DATA вимкнено")
-    if env("SESSION_COOKIE_SECURE") not in ("1", "true", "yes", "on"):
-        note("SESSION_COOKIE_SECURE не 1 — на сайті з HTTPS поставте 1")
+    if env("SESSION_COOKIE_SECURE").lower() in ("0", "false", "no", "off", "ні"):
+        bad("SESSION_COOKIE_SECURE=0 — cookie входу піде й незахищеним каналом. На сервері приберіть рядок або поставте 1")
+    if env("BEHIND_PROXY").lower() in ("0", "false", "no", "off", "ні"):
+        note("BEHIND_PROXY=0 — за Caddy чи nginx поставте 1, інакше ліміти входу й заявок рахуватимуть IP вебсервера")
 
     if cfg:
         print("\nФото")
@@ -258,6 +266,13 @@ def cmd_check(args):
                 conn.execute("SELECT COUNT(*) FROM blocked_nights WHERE source = 'demo'").fetchone()[0]
             conn.close()
             ok(f"база доступна для запису: {db_path}")
+            import stat as stat_
+            for target, need, what in ((db_path, 0o600, "база"), (os.path.dirname(db_path), 0o700, "тека бази")):
+                mode = stat_.S_IMODE(os.stat(target).st_mode)
+                if mode & ~need:
+                    bad(f"{what}: права {mode:o}, мають бути {need:o} — chmod {need:o} {target}")
+                else:
+                    ok(f"{what}: права {mode:o}")
             if demo:
                 note("у базі є демо-дані. Перед запуском для гостей: python manage.py seed --clear-demo")
         except Exception as exc:

@@ -87,7 +87,9 @@ python manage.py photos
 cp .env.example .env
 ```
 
-Заповніть у `.env`: `SECRET_KEY`, `ADMIN_PASSWORD`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`.
+Заповніть у `.env`: `SECRET_KEY` (обов'язково — без нього сайт не запуститься), `ADMIN_PASSWORD`,
+`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`. Для запуску на своєму комп'ютері по `http://localhost`
+додайте `SESSION_COOKIE_SECURE=0` — на сервері цього рядка бути не повинно.
 Секрети зберігаються **тільки** в `.env` (він не потрапляє в git). У конфігу їх бути не може —
 `validate` на це свариться.
 

@@ -68,10 +68,28 @@ def _columns(conn, table):
 
 # ---------- Створення бази й початкові дані ----------
 
+def restrict_permissions(path):
+    """База містить персональні дані гостей: тека — лише для власника (700), файл бази — 600.
+
+    Виконується під час кожного запуску, тож права виправляються самі й на старих сайтах.
+    Змінюються лише власні файли (на спільному хостингу чужі не чіпаємо); помилка не зупиняє сайт.
+    """
+    folder = os.path.dirname(os.path.abspath(path))
+    for target, mode in ((folder, 0o700), (path, 0o600)):
+        try:
+            st = os.stat(target)
+            if st.st_uid == os.getuid() and (st.st_mode & 0o777) != mode:
+                os.chmod(target, mode)
+        except OSError:
+            pass
+
+
 def init_db(path, cfg, with_demo=False, today=None):
     """Створює базу й таблиці, якщо їх ще немає, і доливає з конфігу те, чого в базі бракує."""
-    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    folder = os.path.dirname(os.path.abspath(path))
+    os.makedirs(folder, mode=0o700, exist_ok=True)
     conn = connect(path)
+    restrict_permissions(path)
     try:
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
         if "objects" in tables and "key" not in _columns(conn, "objects"):
@@ -226,12 +244,15 @@ def clear_demo(conn):
 DEMO_ADMIN = ("admin", "demo2026")
 
 
-def ensure_admin(path):
+def ensure_admin(path, demo=False):
     """Створює першого адміністратора з ADMIN_USERNAME / ADMIN_PASSWORD (з файлу .env).
 
-    Без них — демо-доступ admin / demo2026. Якщо ADMIN_PASSWORD задали пізніше,
-    а в базі ще стоїть демо-пароль, його буде замінено. Пароль, змінений командою
-    set-password, файл .env не перезаписує.
+    Без ADMIN_PASSWORD:
+      • демо-сайт (DEMO_DATA=1) — доступ admin / demo2026, його видно на сторінці входу;
+      • робочий сайт — випадковий пароль, записаний у журнал один раз (sudo site-logs НАЗВА).
+        Відомого всім пароля на робочому сайті немає.
+    Якщо ADMIN_PASSWORD задали пізніше, а в базі ще стоїть демо-пароль, його буде замінено.
+    Пароль, змінений командою set-password, файл .env не перезаписує.
     """
     from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -243,10 +264,18 @@ def ensure_admin(path):
     conn = connect(path)
     try:
         if conn.execute("SELECT COUNT(*) FROM admin_users").fetchone()[0] == 0:
+            if password:
+                initial = password
+            elif demo:
+                initial = DEMO_ADMIN[1]
+                log.warning("ADMIN_PASSWORD не задано — демо-доступ %s / %s (лише для демо-сайту).", *DEMO_ADMIN)
+            else:
+                initial = secrets.token_urlsafe(12)
+                log.warning("ADMIN_PASSWORD не задано — створено адміністратора «%s» з випадковим паролем: %s  "
+                            "Задайте свій: ADMIN_PASSWORD у .env (до першого входу) або python manage.py set-password.",
+                            username, initial)
             conn.execute("INSERT INTO admin_users (username, password_hash) VALUES (?, ?)",
-                         (username, generate_password_hash(password or DEMO_ADMIN[1])))
-            if not password:
-                log.warning("ADMIN_PASSWORD не задано — створено демо-доступ %s / %s.", *DEMO_ADMIN)
+                         (username, generate_password_hash(initial)))
             return
         if not password:
             return
