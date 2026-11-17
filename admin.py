@@ -136,8 +136,10 @@ def _price(value, required=True, low=1):
         n = int(str(value).replace(" ", "").replace("\u00a0", ""))
     except (TypeError, ValueError):
         raise db_.BookingError("Ціна має бути цілим числом")
-    if not low <= n <= 1_000_000:
-        raise db_.BookingError("Некоректна ціна")
+    if n < low:
+        raise db_.BookingError("Ціна має бути більшою за 0" if low == 1 else f"Ціна не може бути меншою за {low}")
+    if n > 1_000_000:
+        raise db_.BookingError("Завелика ціна — до 1 000 000 грн")
     return n
 
 
