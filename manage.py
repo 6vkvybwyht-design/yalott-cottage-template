@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Команди для роботи із сайтом. Запуск із папки проєкту:
 
+    python manage.py anketa         повідомлення-опитувальник для клієнта (скопіювати в WhatsApp / Viber)
+    python manage.py from-chat      відповіді клієнта з чату → config/site.yaml + список, чого бракує
     python manage.py new-client     майстер: питає назву, контакти, об'єкти, ціни → config/site.yaml
     python manage.py validate       перевірити конфіг (зрозумілі помилки українською)
     python manage.py seed           залити конфіг у базу (безпечно запускати повторно)
@@ -195,6 +197,9 @@ def cmd_check(args):
             text = open(path, encoding="utf-8").read()
             if "ЗАМІНИТИ" in text or "000 00 00" in text or "0000000" in text:
                 bad("у конфігу лишились заглушки («ЗАМІНИТИ» або телефон із нулів) — впишіть справжні дані")
+            pending = text.count("ПЕРЕВІРИТИ:")
+            if pending:
+                note(f"у конфігу {pending} позначок «ПЕРЕВІРИТИ» з розбору чату — перегляньте й приберіть")
     except site_config.ConfigError as exc:
         for e in exc.errors:
             bad(e)
@@ -367,63 +372,81 @@ def q(value):
     return json.dumps(str(value), ensure_ascii=False)
 
 
-def render_config(d):
-    """Дані майстра → текст config/site.yaml з коментарями українською."""
+def render_config(d, source="python manage.py new-client"):
+    """Дані майстра чи розбору чату → текст config/site.yaml з коментарями українською.
+
+    Необов'язкове d["_flags"] / o["_flags"]: {поле: «ПЕРЕВІРИТИ: …» або «ЗАМІНИТИ: …»} — коментар біля поля.
+    «ЗАМІНИТИ» не пропустить manage.py check, тож сайт із заглушкою не потрапить до гостей.
+    d["_header"] — рядки коментаря на початку файлу; d["_unparsed"] — нерозпізнані шматки (у кінці файлу).
+    """
     L = []
     add = L.append
-    add("# Конфіг сайту — створено командою `python manage.py new-client`.")
+
+    def note(obj, key):
+        text = (obj.get("_flags") or {}).get(key)
+        return f"   # {text}" if text else ""
+
+    add(f"# Конфіг сайту — створено командою `{source}`.")
+    for line in d.get("_header") or []:
+        add(f"# {line}" if line else "#")
     add("# Докладний опис кожного поля з прикладами: config/examples/ та README.md.")
     add("# [БАЗА] — початкове значення: після першого запуску його змінює власник в адмінці,")
     add("#          і правка тут уже не діє (скинути: python manage.py seed --reset).")
     add("# Секрети (паролі, токени) — тільки у файлі .env, не тут.")
     add("")
     add("brand:")
-    add(f"  name: {q(d['name'])}                # назва")
+    add(f"  name: {q(d['name'])}                # назва{note(d, 'name')}")
     add(f"  kind: {q(d['kind'])}                # тип закладу перед назвою (можна порожньо)")
-    add(f"  tagline: {q(d['tagline'])}          # слоган, один рядок")
-    add(f"  description: {q(d['description'])}  # 2–3 речення під заголовком на головній")
+    add(f"  tagline: {q(d['tagline'])}          # слоган, один рядок{note(d, 'tagline')}")
+    add(f"  description: {q(d['description'])}  # 2–3 речення під заголовком на головній{note(d, 'description')}")
     add('  logo: ""                             # шлях у static/, напр. media/brand/logo.png. Порожньо — назва текстом')
     add('  logo_light: ""                       # логотип для темного тла (шапка). Порожньо = logo')
     add('  favicon: ""                          # іконка вкладки. Порожньо — літера з назви')
-    add(f"  theme: {d['theme']}                 # dark | wood | forest")
+    add(f"  theme: {d['theme']}                 # dark | wood | forest{note(d, 'theme')}")
     add('  primary_color: ""                    # свій колір кнопок, напр. "#3a2a1d"')
     add('  accent_color: ""                     # свій акцентний колір')
     add("")
     add("contacts:")
-    add(f"  phone: {q(d['phone'])}              # телефон, як показувати на сайті")
+    add(f"  phone: {q(d['phone'])}              # телефон, як показувати на сайті{note(d, 'phone')}")
     add(f"  viber: {q(d['viber'])}              # номер Viber. Порожньо — кнопки не буде")
     add(f"  whatsapp: {q(d['whatsapp'])}        # номер WhatsApp")
-    add(f"  telegram: {q(d['telegram'])}        # нік без @ (для гостей; це не бот сповіщень)")
-    add(f"  instagram: {q(d['instagram'])}      # нік без @")
+    add(f"  telegram: {q(d['telegram'])}        # нік без @ (для гостей; це не бот сповіщень){note(d, 'telegram')}")
+    add(f"  instagram: {q(d['instagram'])}      # нік без @{note(d, 'instagram')}")
+    if d.get("tiktok"):
+        add(f"  tiktok: {q(d['tiktok'])}            # нік без @")
     add(f"  email: {q(d['email'])}")
-    add(f"  address: {q(d['address'])}          # адреса")
+    add(f"  address: {q(d['address'])}          # адреса{note(d, 'address')}")
     add(f"  region: {q(d['region'])}            # область / район")
-    add(f"  coordinates: {d['coordinates'] or '[]'}   # [широта, довгота] для карти; [] — карта за адресою")
+    add(f"  coordinates: {d['coordinates'] or '[]'}   # [широта, довгота] для карти; [] — карта за адресою"
+        f"{note(d, 'coordinates')}")
     add(f"  directions: {q(d['directions'])}    # як доїхати")
     add("")
     add("# Об'єкти. id — адреса сторінки й папка фото media/objects/<id>/. Після запуску id не змінюйте.")
     add("objects:")
     for i, o in enumerate(d["objects"]):
         add(f"  - id: {q(o['id'])}")
-        add(f"    name: {q(o['name'])}")
+        add(f"    name: {q(o['name'])}{note(o, 'name')}")
         add(f"    type: {q(o['type'])}                # котедж, шале, апартаменти…")
         add(f"    tagline: {q(o['tagline'])}          # рядок над назвою")
-        add("    # Опис: перший абзац — короткий вступ. Абзаци розділяйте порожнім рядком.")
+        add("    # Опис: перший абзац — короткий вступ. Абзаци розділяйте порожнім рядком." + note(o, "description"))
         add("    description: |")
-        add(f"      {o['description']}")
+        for paragraph in str(o["description"]).split("\n"):
+            add(f"      {paragraph}".rstrip())
         if i == 0 and len(d["objects"]) >= 3:
             add("    featured: true                     # великий блок на головній")
-        add(f"    units: {o['units']}                  # [БАЗА] скільки однакових одиниць")
-        add(f"    price: {o['price']}                  # [БАЗА] базова ціна за ніч, грн")
-        add(f"    base_guests: {o['base_guests']}      # [БАЗА] гостей у базовій ціні")
-        add(f"    max_guests: {o['max_guests']}        # [БАЗА] максимум гостей")
-        add(f"    extra_guest_price: {o['extra_guest_price']}   # [БАЗА] доплата за гостя понад базу, грн за ніч")
-        add(f"    min_nights: {o['min_nights']}        # [БАЗА] мінімум ночей")
-        add(f"    bedrooms: {o['bedrooms']}")
-        add(f"    bathrooms: {o['bathrooms']}")
-        add(f"    check_in: {q(o['check_in'])}         # час заїзду")
-        add(f"    check_out: {q(o['check_out'])}       # час виїзду")
-        add("    amenities:" + ("" if o["amenities"] else " []"))
+        add(f"    units: {o['units']}                  # [БАЗА] скільки однакових одиниць{note(o, 'units')}")
+        add(f"    price: {o['price']}                  # [БАЗА] базова ціна за ніч, грн{note(o, 'price')}")
+        add(f"    base_guests: {o['base_guests']}      # [БАЗА] гостей у базовій ціні{note(o, 'base_guests')}")
+        add(f"    max_guests: {o['max_guests']}        # [БАЗА] максимум гостей{note(o, 'max_guests')}")
+        add(f"    extra_guest_price: {o['extra_guest_price']}   # [БАЗА] доплата за гостя понад базу, грн за ніч"
+            f"{note(o, 'extra_guest_price')}")
+        add(f"    min_nights: {o['min_nights']}        # [БАЗА] мінімум ночей{note(o, 'min_nights')}")
+        for key in ("bedrooms", "bathrooms"):
+            if o.get(key) is not None:
+                add(f"    {key}: {o[key]}")
+        add(f"    check_in: {q(o['check_in'])}         # час заїзду{note(o, 'check_in')}")
+        add(f"    check_out: {q(o['check_out'])}       # час виїзду{note(o, 'check_out')}")
+        add("    amenities:" + ("" if o["amenities"] else " []") + note(o, "amenities"))
         for a in o["amenities"]:
             add(f"      - {q(a)}")
         add("")
@@ -434,8 +457,8 @@ def render_config(d):
         add(f"  - id: {q(e['id'])}                    # фото: media/extras/{e['id']}.jpg")
         add(f"    name: {q(e['name'])}")
         add(f"    description: {q(e['description'])}")
-        add(f"    price: {e['price']}                  # [БАЗА] ціна, грн")
-        add(f"    unit: {e['unit']}")
+        add(f"    price: {e['price']}                  # [БАЗА] ціна, грн{note(e, 'price')}")
+        add(f"    unit: {e['unit']}{note(e, 'unit')}")
         add("    icon: hottub" if "чан" in e["name"].lower() else "    icon: star")
         if e["guest_prices"]:
             add("    guest_prices:                       # [БАЗА] ціна залежно від кількості гостей")
@@ -446,23 +469,25 @@ def render_config(d):
     add("# prices: {id: ціна} або on_request: true (ціна за домовленістю). Дати: РРРР-ММ-ДД.")
     add("seasons:" + ("" if d["seasons"] else " []"))
     for s in d["seasons"]:
-        add(f"  - name: {q(s['name'])}")
-        add(f"    start: {s['start']}")
+        add(f"  - name: {q(s['name'])}{note(s, 'name')}")
+        add(f"    start: {s['start']}{note(s, 'dates')}")
         add(f"    end: {s['end']}")
         if s.get("prices"):
-            add("    prices:")
+            add("    prices:" + note(s, "prices"))
             for key, price in s["prices"].items():
                 add(f"      {q(key)}: {price}")
+        elif s.get("price"):
+            add(f"    price: {s['price']}                # для всіх об'єктів{note(s, 'price')}")
         else:
             add("    on_request: true")
     add("")
     add("rules:")
-    add(f"  prepayment_percent: {d['prepayment']}   # передоплата, %")
-    add(f"  check_in: {q(d['check_in'])}")
-    add(f"  check_out: {q(d['check_out'])}")
+    add(f"  prepayment_percent: {d['prepayment']}   # передоплата, %{note(d, 'prepayment')}")
+    add(f"  check_in: {q(d['check_in'])}{note(d, 'check_in')}")
+    add(f"  check_out: {q(d['check_out'])}{note(d, 'check_out')}")
     add("  cancellation:")
-    add(f"    days: {d['cancel_days']}")
-    add(f"    text: {q(d['cancel_text'])}")
+    add(f"    days: {d['cancel_days']}{note(d, 'cancel_days')}")
+    add(f"    text: {q(d['cancel_text'])}{note(d, 'cancel_text')}")
     add(f"  pets: {q(d['pets'])}                   # порожньо — пункт не показується")
     add(f"  smoking: {q(d['smoking'])}")
     add(f"  quiet: {q(d['quiet'])}")
@@ -488,6 +513,12 @@ def render_config(d):
     add(f"  description: {q(d['description'])}")
     add("  lang: uk")
     add("")
+    if d.get("_unparsed"):
+        add("# ── НЕ РОЗПІЗНАНО З ЧАТУ — перенесіть потрібне у поля вище й видаліть цей блок ──")
+        for label, text in d["_unparsed"]:
+            for i, line in enumerate(str(text).splitlines() or [""]):
+                add(f"# {label}: {line}" if i == 0 else f"#     {line}")
+        add("")
     return "\n".join(L)
 
 
@@ -655,6 +686,91 @@ def cmd_new_client(args):
     return 1 if errors else 0
 
 
+# ---------- анкета в чаті ----------
+
+def cmd_anketa(args):
+    import chat_import
+    print(chat_import.QUESTIONNAIRE)
+    return 0
+
+
+def _make_media_dirs(root, object_ids):
+    for oid in object_ids:
+        os.makedirs(os.path.join(BASE_DIR, root, "objects", oid), exist_ok=True)
+    for sub in ("hero", "gallery", "extras", "brand"):
+        os.makedirs(os.path.join(BASE_DIR, root, sub), exist_ok=True)
+
+
+def cmd_from_chat(args):
+    """Відповіді клієнта з чату (файл або вставлений текст) → конфіг + звіт + повідомлення-дозапит."""
+    import chat_import
+    out = args.output if os.path.isabs(args.output) else os.path.join(BASE_DIR, args.output)
+    if os.path.exists(out) and not args.force:
+        print(f"\nФайл {_rel(out)} уже існує. Додайте --force (старий збережеться як .bak) "
+              f"або вкажіть інший: --output config/назва.yaml\n")
+        return 1
+    if args.file and args.file != "-":
+        with open(args.file, encoding="utf-8-sig") as f:
+            text = f.read()
+    else:
+        if sys.stdin.isatty():
+            print("Вставте відповіді клієнта з чату як є, потім з нового рядка натисніть Ctrl+D "
+                  "(у Windows — Ctrl+Z і Enter):\n")
+        text = sys.stdin.read()
+    if not text.strip():
+        print("Порожній текст — нічого розбирати.")
+        return 1
+
+    data, report = chat_import.parse_chat(text, slugify=slugify)
+    if args.theme:
+        data["theme"] = args.theme
+        data["_flags"].pop("theme", None)
+    data["_header"] = [
+        "Дані розібрано з відповідей клієнта в чаті. Перед запуском перегляньте коментарі:",
+        "  «ПЕРЕВІРИТИ: …» — значення взято з чату, але варто глянути;",
+        "  «ЗАМІНИТИ: …»   — даних немає, стоїть заглушка (python manage.py check не пропустить до деплою).",
+        "Нерозпізнані шматки відповідей — у кінці файлу.",
+    ]
+    text_yaml = render_config(data, source="python manage.py from-chat")
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    if os.path.exists(out):
+        shutil.copy2(out, out + ".bak")
+    with open(out, "w", encoding="utf-8") as f:
+        f.write(text_yaml)
+    errors, _ = site_config.validate(site_config.read_yaml(out), check_photos=False)
+    _make_media_dirs(site_config.media_root(out), [o["id"] for o in data["objects"]])
+
+    print(f"\n{OK} Конфіг збережено: {_rel(out)}" + ("" if not os.path.exists(out + ".bak") else f" (попередній — {_rel(out)}.bak)"))
+    print(f"   Відповіді є на питання: {', '.join(map(str, report['answered'])) or 'жодне з номером'}")
+    print("\nРозпізнано:")
+    for line in report["found"]:
+        print(f"{OK} {line}")
+    if report["check"]:
+        print("\nПеревірити (у конфігу позначено «ПЕРЕВІРИТИ»):")
+        for line in report["check"]:
+            print(f"{WARN} {line}")
+    if report["missing"]:
+        print("\nБракує (у конфігу — «ЗАМІНИТИ», дозапитайте в клієнта або допишіть):")
+        for line in report["missing"]:
+            print(f"{FAIL} {line}")
+    if report["unparsed"]:
+        print("\nНе розпізнано (лежить коментарем у кінці конфігу):")
+        for label, piece in report["unparsed"]:
+            print(f"   [{label}] {piece[:100]}")
+    for e in errors:
+        print(f"{FAIL} конфіг: {e}")
+    followup = chat_import.followup_message(report)
+    if followup:
+        print("\n──── Повідомлення клієнту (скопіюйте в чат) ────\n")
+        print(followup)
+        print("\n────────────────────────────────────────────────")
+        print("Коли клієнт відповість — допишіть відповіді в конфіг або вставте весь чат ще раз з --force.")
+    flag = "" if site_config.media_root(out) == "media" else f" --config {_rel(out)}"
+    print(f"\nДалі: фото → {site_config.media_root(out)}/objects/<id>/, потім python manage.py photos{flag} "
+          f"і python manage.py check{flag}\n")
+    return 1 if errors else 0
+
+
 # ---------- запуск ----------
 
 def main(argv=None):
@@ -666,6 +782,16 @@ def main(argv=None):
         p.add_argument("--config", help="шлях до конфігу (типово config/site.yaml або змінна SITE_CONFIG)")
         p.set_defaults(func=func)
         return p
+
+    p = sub.add_parser("anketa", help="повідомлення-опитувальник для клієнта (скопіювати в чат)")
+    p.set_defaults(func=cmd_anketa)
+
+    p = sub.add_parser("from-chat", help="відповіді клієнта з чату → config/site.yaml і список, чого бракує")
+    p.add_argument("file", nargs="?", help="файл із текстом чату (без нього — вставити текст у термінал)")
+    p.add_argument("--output", default=os.path.join("config", "site.yaml"), help="куди зберегти (типово config/site.yaml)")
+    p.add_argument("--force", action="store_true", help="замінити наявний файл (старий збережеться як .bak)")
+    p.add_argument("--theme", choices=site_config.THEMES, help="тема оформлення (типово wood)")
+    p.set_defaults(func=cmd_from_chat)
 
     p = sub.add_parser("new-client", help="майстер: створити config/site.yaml для нового клієнта")
     p.add_argument("--output", default=os.path.join("config", "site.yaml"), help="куди зберегти (типово config/site.yaml)")
