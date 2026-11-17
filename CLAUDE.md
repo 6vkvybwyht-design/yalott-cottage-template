@@ -66,9 +66,15 @@
 
 ```bash
 python -m pytest                 # усі тести
+python manage.py anketa          # опитувальник для клієнта (WhatsApp / Viber)
+python manage.py from-chat chat.txt   # відповіді з чату → config/site.yaml + дозапит
 python manage.py validate        # перевірити конфіг
 python manage.py check           # готовність до деплою
 SITE_CONFIG=config/examples/ramshill.yaml DEMO_DATA=1 python app.py   # приклад
 ```
+
+Змінили питання в `chat_import.QUESTIONS` — оновіть копію: `python manage.py anketa > docs/anketa-dlya-klienta.txt`
+(тест перевіряє, що вони однакові). Нове поле конфігу з анкети — додайте його розбір у `chat_import.parse_chat`
+і фікстуру чату в `tests/fixtures/chats/`.
 
 Докладно — `README.md`, деплой — `DEPLOY.md`.
