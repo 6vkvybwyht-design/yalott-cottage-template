@@ -3,26 +3,48 @@
 сезони, ціни додаткових послуг, тестове сповіщення в Telegram."""
 
 import html
+import logging
 import re
 import secrets
-import time
 from functools import wraps
 
 from flask import (Blueprint, current_app, flash, jsonify, redirect, render_template, request,
                    session, url_for)
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 import database as db_
 import notifications
+import security
 
 bp = Blueprint("admin", __name__, url_prefix="/admin")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+log = logging.getLogger(__name__)
+# Хеш для перевірки пароля неіснуючого логіна: відповідь займає стільки ж часу, як для справжнього,
+# тож за часом відповіді не можна дізнатися, які логіни існують.
+_DUMMY_HASH = generate_password_hash(secrets.token_hex(16))
+
+
+def _pwv(password_hash):
+    return security.password_version(password_hash, current_app.secret_key)
+
+
+def logged_in():
+    """Чи дійсний вхід: користувач є в базі, і пароль не змінювався після входу. Інакше сесія очищається.
+    Строк дії (12 год) стежить Flask: cookie «постійної» сесії сама спливає після PERMANENT_SESSION_LIFETIME."""
+    admin_id = session.get("admin_id")
+    if not admin_id:
+        return False
+    user = db_.get_db().execute("SELECT password_hash FROM admin_users WHERE id = ?", (admin_id,)).fetchone()
+    if user is None or not security.token_ok(session.get("pwv"), _pwv(user["password_hash"])):
+        session.clear()
+        return False
+    return True
 
 
 def login_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
-        if not session.get("admin_id"):
+        if not logged_in():
             return redirect(url_for("admin.login"))
         return view(*args, **kwargs)
     return wrapped
@@ -32,11 +54,10 @@ def api_required(view):
     """Для JSON-запитів адмінки: потрібен вхід і CSRF-токен у заголовку."""
     @wraps(view)
     def wrapped(*args, **kwargs):
-        if not session.get("admin_id"):
+        if not logged_in():
             return jsonify(ok=False, error="Сесія завершилась — увійдіть знову", login=True), 401
         if request.method == "POST":
-            token = request.headers.get("X-CSRF-Token") or ""
-            if not token or not secrets.compare_digest(token, session.get("csrf", "")):
+            if not security.token_ok(request.headers.get("X-CSRF-Token"), session.get("csrf")):
                 return jsonify(ok=False, error="Сесія застаріла — оновіть сторінку"), 400
         return view(*args, **kwargs)
     return wrapped
@@ -48,30 +69,51 @@ def _error(e):
 
 @bp.route("/login", methods=["GET", "POST"])
 def login():
+    """Вхід. Захист від підбору пароля: 5 невдалих спроб з однієї IP або 10 на один логін за 15 хв →
+    пауза 15 хв. Лічильник — у базі (спільний для всіх воркерів); без sleep, який блокував би сайт."""
     db = db_.get_db()
+    status = 200
     if request.method == "POST":
-        if request.form.get("csrf") != session.get("csrf"):
+        if not security.token_ok(request.form.get("csrf"), session.get("csrf")):
             flash("Сесія застаріла — спробуйте ще раз.", "error")
             return redirect(url_for("admin.login"))
-        username = request.form.get("username", "").strip()
-        user = db.execute("SELECT * FROM admin_users WHERE username = ?", (username,)).fetchone()
-        if user and check_password_hash(user["password_hash"], request.form.get("password", "")):
-            session.clear()
-            session["admin_id"] = user["id"]
-            session["admin_name"] = user["username"]
-            return redirect(url_for("admin.index"))
-        time.sleep(0.7)  # уповільнюємо підбір пароля
-        flash("Неправильний логін або пароль.", "error")
+        username = security.clean_text(request.form.get("username"), 80)
+        ip = request.remote_addr or "?"
+        wait = security.login_blocked(db, ip, username)
+        if wait:
+            log.warning("Вхід в адмінку тимчасово заблоковано: IP %s, логін %r (забагато невдалих спроб)", ip, username)
+            flash(f"Забагато невдалих спроб. Спробуйте через {max(1, round(wait / 60))} хв.", "error")
+            status = 429
+        else:
+            user = db.execute("SELECT * FROM admin_users WHERE username = ?", (username,)).fetchone()
+            ok = check_password_hash(user["password_hash"] if user else _DUMMY_HASH, request.form.get("password") or "")
+            if user and ok:
+                security.clear_login_failures(db, ip, username)
+                session.clear()
+                session.permanent = True   # вхід діє 12 год (PERMANENT_SESSION_LIFETIME), потім — знову пароль
+                session["admin_id"] = user["id"]
+                session["admin_name"] = user["username"]
+                session["pwv"] = _pwv(user["password_hash"])
+                session["csrf"] = secrets.token_urlsafe(16)   # новий токен після входу
+                return redirect(url_for("admin.index"))
+            security.record_login_failure(db, ip, username)
+            log.warning("Невдалий вхід в адмінку: IP %s, логін %r", ip, username)
+            flash("Неправильний логін або пароль.", "error")
+            status = 401
 
-    demo = db.execute("SELECT password_hash FROM admin_users WHERE username = ?",
-                      (db_.DEMO_ADMIN[0],)).fetchone()
-    show_demo = demo is not None and check_password_hash(demo["password_hash"], db_.DEMO_ADMIN[1])
-    return render_template("admin/login.html", demo=db_.DEMO_ADMIN if show_demo else None)
+    # Демо-доступ показуємо лише на демо-сайті (DEMO_DATA=1) і лише поки стоїть демо-пароль.
+    show_demo = False
+    if current_app.config.get("DEMO_DATA"):
+        demo = db.execute("SELECT password_hash FROM admin_users WHERE username = ?", (db_.DEMO_ADMIN[0],)).fetchone()
+        show_demo = demo is not None and check_password_hash(demo["password_hash"], db_.DEMO_ADMIN[1])
+    return render_template("admin/login.html", demo=db_.DEMO_ADMIN if show_demo else None), status
 
 
 @bp.post("/logout")
 def logout():
-    session.clear()
+    # CSRF і тут: інакше чужий сайт міг би «викидати» власника з адмінки.
+    if security.token_ok(request.form.get("csrf"), session.get("csrf")):
+        session.clear()
     return redirect(url_for("admin.login"))
 
 

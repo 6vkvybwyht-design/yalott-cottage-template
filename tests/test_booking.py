@@ -53,8 +53,10 @@ def test_theme_colors_from_config(make_site, tmp_path):
     text = text.replace('primary_color: ""', 'primary_color: "#123456"').replace('accent_color: ""', 'accent_color: "#abcdef"')
     path = tmp_path / "ramshill.yaml"
     path.write_text(text, encoding="utf-8")
-    html = make_site(str(path)).html("/")
-    assert "--primary:#123456" in html and "--accent:#abcdef" in html and "--on-primary:#ffffff" in html
+    s = make_site(str(path))
+    assert "/theme.css" in s.html("/")
+    css = s.client.get("/theme.css").get_data(as_text=True)
+    assert "--primary:#123456" in css and "--accent:#abcdef" in css and "--on-primary:#ffffff" in css
 
 
 # ---------- Ramshill: ціни й кількість одиниць ----------

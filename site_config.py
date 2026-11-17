@@ -195,6 +195,24 @@ def _find_secrets(node, path, c):
             _find_secrets(v, f"{path}№{i} → ", c)
 
 
+def _check_integration_urls(node, path, c):
+    """Будь-яке посилання в integrations (iCal з Booking/Airbnb тощо): лише https:// і не внутрішні адреси —
+    інакше через нього можна було б читати сервіси самого сервера (SSRF). Мережу тут не використовуємо;
+    перед завантаженням security.fetch_public перевіряє ще й IP, на які вказує домен."""
+    import security
+    if isinstance(node, dict):
+        for key, value in node.items():
+            _check_integration_urls(value, f"{path} → {key}", c)
+    elif isinstance(node, list):
+        for i, value in enumerate(node, 1):
+            _check_integration_urls(value, f"{path} №{i}", c)
+    elif isinstance(node, str) and ("://" in node or "ical" in path.lower() or path.lower().endswith("url")):
+        try:
+            security.check_url_format(node)
+        except security.UnsafeUrlError as exc:
+            c.err(path, f"{exc} (вказано «{node[:80]}»)")
+
+
 def _ranges_overlap(a, b):
     return a[0] <= b[1] and b[0] <= a[1]
 
@@ -452,6 +470,9 @@ def validate(raw, check_photos=True, static_dir=None, media="media"):
     for key, v in sections.items():
         if v is True and key in ("reviews", "faq", "nearby") and not raw.get(key):
             c.warn(f"sections → {key}", f"блок увімкнено, але список «{key}» порожній — блок не покажеться")
+
+    # --- integrations (v2: iCal тощо) — посилання лише https:// на адреси в інтернеті ---
+    _check_integration_urls(c.section(raw, "integrations", dict), "integrations", c)
 
     # --- seo ---
     seo = c.section(raw, "seo", dict)

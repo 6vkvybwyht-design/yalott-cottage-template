@@ -16,9 +16,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 _tmp = tempfile.mkdtemp(prefix="cottage-tests-")
-os.environ.update({"YALOTT_NO_APP": "1", "INSTANCE_PATH": _tmp, "NOTIFY_SYNC": "1", "SECRET_KEY": "test" * 16})
-for key in ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "ADMIN_PASSWORD", "ADMIN_USERNAME", "DATABASE_PATH",
-            "DEMO_DATA", "SITE_CONFIG"):
+# Тести ходять по http:// — тому cookie без Secure (на справжньому сайті Secure вмикається сам).
+os.environ.update({"YALOTT_NO_APP": "1", "INSTANCE_PATH": _tmp, "NOTIFY_SYNC": "1", "SECRET_KEY": "test" * 16,
+                   "SESSION_COOKIE_SECURE": "0", "ADMIN_PASSWORD": "demo2026", "BEHIND_PROXY": "1"})
+for key in ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "ADMIN_USERNAME", "DATABASE_PATH", "DEMO_DATA", "SITE_CONFIG"):
     os.environ[key] = ""
 
 import app as app_module  # noqa: E402
@@ -82,7 +83,6 @@ class Site:
 def make_site():
     folders, patch = [], mock.patch.object(app_module, "now_local", return_value=FIXED_NOW)
     patch.start()
-    app_module._hits.clear()   # скидаємо захист від спаму між тестами
 
     def factory(config="ramshill", demo=False):
         folders.append(tempfile.mkdtemp(prefix="cottage-db-"))

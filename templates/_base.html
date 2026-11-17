@@ -21,7 +21,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Onest:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ S }}css/style.css{{ V }}">
-  {% if theme_overrides %}<style>{{ theme_overrides|safe }}</style>{% endif %}
+  {% if theme_css %}<link rel="stylesheet" href="{{ url_for('theme_css') }}{{ V }}">{% endif %}
   {% block head %}{% endblock %}
 </head>
 <body class="dark-top {% block body_class %}{% endblock %}">

@@ -11,16 +11,17 @@ import logging
 import os
 import re
 import secrets
-import time
 from datetime import date, datetime, timedelta
 
 import click
 from flask import Flask, Response, abort, jsonify, redirect, render_template, request, session, url_for
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 import database as db_
 import gallery
 import notifications
 import pricing as P
+import security
 import site_config
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -59,27 +60,6 @@ def env_flag(name, default=False):
     return value in ("1", "true", "yes", "on", "так")
 
 
-def secret_key(instance_path):
-    """SECRET_KEY з .env; якщо його немає — випадковий ключ, збережений у instance/secret_key."""
-    key = os.environ.get("SECRET_KEY", "").strip()
-    if key:
-        return key
-    path = os.path.join(instance_path, "secret_key")
-    os.makedirs(instance_path, exist_ok=True)
-    try:
-        with open(path, encoding="utf-8") as f:
-            key = f.read().strip()
-    except FileNotFoundError:
-        key = ""
-    if not key:
-        key = secrets.token_hex(32)
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(key)
-    log.warning("SECRET_KEY не задано — використовую ключ з %s. На сервері задайте SECRET_KEY у .env.", path)
-    return key
-
-
 # ---------- Час: сайт працює за київським часом (сервер PythonAnywhere живе в UTC) ----------
 
 try:
@@ -99,18 +79,15 @@ def today_iso():
 
 # ---------- Захист від спаму: не більше 10 заявок за 10 хвилин з однієї IP ----------
 
-_hits = {}
+def client_ip():
+    """Справжня IP відвідувача. За вебсервером (Caddy, nginx PythonAnywhere) її підставляє ProxyFix
+    з ОСТАННЬОГО запису X-Forwarded-For — того, що дописав наш вебсервер; підробити його відвідувач не може."""
+    return request.remote_addr or "?"
 
 
 def rate_limited():
-    ip = (request.headers.get("X-Forwarded-For") or request.remote_addr or "").split(",")[0].strip()
-    now = time.time()
-    recent = [t for t in _hits.get(ip, []) if now - t < 600]
-    if len(recent) >= 10:
-        return True
-    recent.append(now)
-    _hits[ip] = recent
-    return False
+    """Ліміт у базі, а не в пам'яті процесу: однаковий для всіх воркерів gunicorn і після перезапуску."""
+    return security.booking_limited(db_.get_db(), client_ip())
 
 
 # ---------- Перевірка форми бронювання ----------
@@ -132,14 +109,20 @@ def _int(value, default=0):
 
 def validate_booking(body, objects, extra_keys, today):
     """Перевіряє заявку з форми. objects — db_.objects(): максимум гостей і мінімум ночей беруться з бази."""
-    name = str(body.get("name") or "").strip()[:80]
-    phone = str(body.get("phone") or "").strip()[:32]
+    if not isinstance(body, dict):
+        raise db_.BookingError("Некоректна заявка")
+    for field in ("name", "phone", "comment", "checkIn", "checkOut"):
+        if body.get(field) is not None and not isinstance(body.get(field), str):
+            raise db_.BookingError("Некоректна заявка")
+    name = security.clean_text(body.get("name"), 80)
+    phone = security.clean_text(body.get("phone"), 32)
     if len(name) < 2:
         raise db_.BookingError("Вкажіть, будь ласка, ім'я")
-    if not 9 <= len(re.sub(r"\D", "", phone)) <= 15:
+    if not 9 <= len(re.sub(r"\D", "", phone)) <= 15 or not re.fullmatch(r"[\d\s()+\-.]+", phone):
         raise db_.BookingError("Вкажіть коректний номер телефону")
 
-    obj = objects.get(_int(body.get("objectId")))
+    object_id = body.get("objectId")
+    obj = objects.get(_int(object_id)) if isinstance(object_id, (int, str)) and not isinstance(object_id, bool) else None
     if obj is None:
         raise db_.BookingError("Оберіть об'єкт для бронювання")
 
@@ -153,17 +136,18 @@ def validate_booking(body, objects, extra_keys, today):
     if len(P.nights_between(check_in, check_out)) < obj["minNights"]:
         raise db_.BookingError(f"«{obj['name']}»: мінімальне бронювання — ночей: {obj['minNights']}")
 
-    guests = _int(body.get("guests"))
+    guests = body.get("guests")
+    guests = guests if isinstance(guests, int) and not isinstance(guests, bool) else _int(guests if isinstance(guests, str) else None)
     if not 1 <= guests <= obj["maxGuests"]:
         raise db_.BookingError(f"«{obj['name']}»: від 1 до {obj['maxGuests']} гостей")
     extras = body.get("extras") or []
-    if not isinstance(extras, list):
+    if not isinstance(extras, list) or len(extras) > 50:
         extras = []
-    extras = [k for k in extra_keys if k in extras]  # лише відомі, без повторів
-    if not body.get("rules"):
+    extras = [k for k in extra_keys if k in [e for e in extras if isinstance(e, str)]]  # лише відомі, без повторів
+    if body.get("rules") is not True:
         raise db_.BookingError("Підтвердьте, що ознайомилися з умовами бронювання")
     return {"objectId": obj["id"], "name": name, "phone": phone,
-            "comment": str(body.get("comment") or "").strip()[:500],
+            "comment": security.clean_text(body.get("comment"), 500, multiline=True),
             "checkIn": check_in, "checkOut": check_out, "guests": guests, "extras": extras}
 
 
@@ -186,7 +170,7 @@ def theme_overrides(brand):
         rules += [f"--primary:{brand['primary_color']}", f"--on-primary:{_contrast(brand['primary_color'])}"]
     if brand["accent_color"]:
         rules.append(f"--accent:{brand['accent_color']}")
-    return "html[data-theme]{" + ";".join(rules) + "}" if rules else ""
+    return "html[data-theme]{" + ";".join(rules) + "}\n" if rules else ""
 
 
 def favicon_svg(brand):
@@ -203,26 +187,41 @@ def create_app(test_config=None):
     test_config = dict(test_config or {})
     instance_path = os.environ.get("INSTANCE_PATH") or os.path.join(BASE_DIR, "instance")
     app = Flask(__name__, instance_path=instance_path)
+    # SECRET_KEY — лише з .env: без нього сайт не стартує (security.require_secret_key пояснить, що робити).
+    key = security.require_secret_key(test_config.pop("SECRET_KEY", None) or os.environ.get("SECRET_KEY"))
+    if security.weak_secret_key(key):
+        log.warning("SECRET_KEY коротший за 32 символи — замініть на довший (python manage.py check підкаже як).")
 
     # Конфіг клієнта. Помилка в ньому зупиняє запуск зі зрозумілим поясненням (python manage.py validate).
     site = site_config.load(test_config.pop("SITE_CONFIG", None))
     app.extensions["site"] = site
 
     app.config.update(
-        SECRET_KEY=secret_key(instance_path),
+        SECRET_KEY=key,
         # Окрема база на кожен конфіг: site.yaml → instance/site.db, ramshill.yaml → instance/ramshill.db.
         DATABASE=os.environ.get("DATABASE_PATH") or os.path.join(instance_path, f"{site.key}.db"),
         DEMO_DATA=env_flag("DEMO_DATA", default=False),
+        # Cookie входу: лише HTTPS (Secure), недоступна скриптам (HttpOnly), не йде з чужих сайтів (SameSite).
+        # Для запуску на своєму комп'ютері по http:// — SESSION_COOKIE_SECURE=0 у .env.
+        SESSION_COOKIE_SECURE=env_flag("SESSION_COOKIE_SECURE", default=True),
+        SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
-        # На HTTPS-сервері cookie входу передаються лише захищеним каналом.
-        SESSION_COOKIE_SECURE=env_flag("SESSION_COOKIE_SECURE"),
+        # Вхід в адмінку діє 12 годин; потім — знову пароль (перевіряється й на сервері).
+        PERMANENT_SESSION_LIFETIME=timedelta(hours=security.SESSION_HOURS),
+        # Більший запит відхиляється одразу (форма бронювання — кілька сотень байтів).
+        MAX_CONTENT_LENGTH=security.MAX_REQUEST_BYTES,
     )
     app.json.ensure_ascii = False
     app.config.update(test_config)
+    # Сайт працює за ОДНИМ вебсервером (Caddy на VPS, nginx на PythonAnywhere): справжні IP відвідувача й https
+    # беруться з X-Forwarded-For / X-Forwarded-Proto, які він додав. BEHIND_PROXY=0 — лише якщо gunicorn
+    # відкритий в інтернет напряму (так робити не варто).
+    if env_flag("BEHIND_PROXY", default=True):
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 
     # База й таблиці створюються автоматично; з конфігу доливається лише те, чого в базі ще немає.
     db_.init_db(app.config["DATABASE"], site, with_demo=app.config["DEMO_DATA"], today=now_local().date())
-    db_.ensure_admin(app.config["DATABASE"])
+    db_.ensure_admin(app.config["DATABASE"], demo=app.config["DEMO_DATA"])
     app.teardown_appcontext(db_.close_db)
 
     @app.template_filter("uah")
@@ -251,12 +250,21 @@ def create_app(test_config=None):
         return {"csrf_token": session["csrf"], "current_year": now_local().year, "site": site,
                 "brand": brand, "contacts": site.contacts, "rules": site.rules, "sections": site.sections,
                 "nav_objects": site.objects, "logo": logo, "logo_light": logo_light, "favicon": favicon,
-                "theme_overrides": overrides, "V": asset_version}
+                "theme_css": bool(overrides), "V": asset_version}
 
     app.jinja_env.globals.update(thumb_for=gallery.thumb_for, plural=site_config.plural,
                                  guests_gen=site_config.guests_gen)
     app.extensions["fh_today"] = lambda: today_iso()  # київська дата для адмінки
+    app.extensions["theme_css"] = overrides
     register_routes(app)
+
+    @app.after_request
+    def add_security_headers(response):
+        """Заголовки безпеки — на кожній відповіді, зокрема на сторінках помилок. Працюють і без Caddy."""
+        admin = request.path.startswith("/admin")
+        for name, value in security.security_headers(request.is_secure, admin=admin).items():
+            response.headers.setdefault(name, value)
+        return response
 
     import admin
     app.register_blueprint(admin.bp)
@@ -273,8 +281,7 @@ def create_app(test_config=None):
 
 
 def csrf_ok():
-    token = request.headers.get("X-CSRF-Token") or ""
-    return bool(token) and secrets.compare_digest(token, session.get("csrf", ""))
+    return security.token_ok(request.headers.get("X-CSRF-Token"), session.get("csrf"))
 
 
 def object_facts(o):
@@ -353,6 +360,13 @@ def register_routes(app):
         return Response(favicon_svg(site.brand), mimetype="image/svg+xml",
                         headers={"Cache-Control": "public, max-age=86400"})
 
+    @app.get("/theme.css")
+    def theme_css():
+        """Свої кольори з конфігу (brand.primary_color / accent_color) — окремим файлом, а не вбудованим <style>:
+        Content-Security-Policy забороняє вбудовані стилі й скрипти."""
+        return Response(app.extensions["theme_css"], mimetype="text/css",
+                        headers={"Cache-Control": "public, max-age=3600"})
+
     @app.get("/robots.txt")
     def robots():
         return Response("User-agent: *\nDisallow: /admin/\nDisallow: /api/\n", mimetype="text/plain")
@@ -394,6 +408,8 @@ def register_routes(app):
 def _create_default_app():
     try:
         return create_app()
+    except security.SecurityConfigError as exc:
+        raise SystemExit(f"\n{exc}\n")
     except site_config.ConfigError as exc:
         raise SystemExit(f"\n{exc}\n\nВиправте конфіг і перевірте: python manage.py validate\n")
 
