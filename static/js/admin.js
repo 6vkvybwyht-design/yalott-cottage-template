@@ -243,18 +243,30 @@
   });
 
   /* ---------- ціни ---------- */
-  // Усі числові поля — type=number зі step=1: ціна може бути будь-яким цілим числом (4500, 20000, 12345).
-  function num(name, label, value, min, extra) {
-    return '<label class="field"><span>' + label + '</span><input name="' + name + '" type="number" inputmode="numeric" min="' + min + '" step="1" value="' + (value == null ? '' : value) + '"' + (extra || ' required') + '></label>';
+  // ОБОВ'ЯЗКОВЕ ПРАВИЛО (див. CLAUDE.md): грошове поле — ЛИШЕ step="1" min="0" data-money.
+  // Браузер відраховує крок від min: з min="1" step="50" валідні 1, 51, … 4451, 4501 — і ціну 4500 не приймає.
+  // Будь-яке інше числове поле — step="1" (або "any"). Значення пишуться в розмітці буквально,
+  // не змінними: tests/test_number_inputs.py перевіряє кожне поле й падає на step="50", min="1" тощо.
+  var VALUE = function (v) { return v == null ? '' : v; };
+  /** Гроші (грн): будь-яке ціле число ≥ 0. Додатні межі (ціна > 0) перевіряє сервер і пояснює помилку. */
+  function moneyInput(name, value, attrs) {
+    return '<input name="' + name + '" type="number" inputmode="numeric" min="0" step="1" data-money value="' + VALUE(value) + '"' + (attrs || '') + '>';
+  }
+  function moneyField(name, label, value) {
+    return '<label class="field"><span>' + label + '</span>' + moneyInput(name, value, ' required') + '</label>';
+  }
+  /** Кількість (гості, ночі, одиниці): ціле число. */
+  function count(name, label, value) {
+    return '<label class="field"><span>' + label + '</span><input name="' + name + '" type="number" inputmode="numeric" min="1" step="1" value="' + VALUE(value) + '" required></label>';
   }
   function tierRow(t) {
     return '<div class="tier-row"><span>від</span><input name="tn" type="number" min="2" max="60" step="1" value="' + (t ? t.nights : '') + '" required aria-label="Від скількох ночей">' +
-      '<span>ночей —</span><input name="tp" type="number" min="1" step="1" value="' + (t ? t.price : '') + '" required aria-label="Ціна за ніч, грн"><span>грн / ніч</span>' +
+      '<span>ночей —</span>' + moneyInput('tp', t && t.price, ' required aria-label="Ціна за ніч, грн"') + '<span>грн / ніч</span>' +
       '<button type="button" class="mini" data-tier-del aria-label="Прибрати знижку">✕</button></div>';
   }
   function guestTierRow(t) {
     return '<div class="tier-row"><span>до</span><input name="gu" type="number" min="1" max="50" step="1" value="' + (t ? t.upTo : '') + '" required aria-label="До скількох гостей">' +
-      '<span>гостей —</span><input name="gp" type="number" min="1" step="1" value="' + (t ? t.price : '') + '" required aria-label="Ціна, грн"><span>грн</span>' +
+      '<span>гостей —</span>' + moneyInput('gp', t && t.price, ' required aria-label="Ціна, грн"') + '<span>грн</span>' +
       '<button type="button" class="mini" data-tier-del aria-label="Прибрати рядок">✕</button></div>';
   }
   function objSelect(value) {
@@ -268,7 +280,7 @@
       '<label class="field"><span>Об\'єкт</span>' + objSelect(p ? p.objectId : null) + '</label>' +
       '<label class="field"><span>Перша ніч</span><input name="start" type="date" value="' + (p ? p.start : '') + '" required></label>' +
       '<label class="field"><span>Остання ніч</span><input name="end" type="date" value="' + (p ? p.end : '') + '" required></label>' +
-      '<label class="field period-price"><span>Ціна, грн / ніч</span><input name="price" type="number" inputmode="numeric" min="1" step="1" value="' + (p && p.price ? p.price : '') + '"' + (onReq ? ' disabled' : '') + '></label>' +
+      '<label class="field period-price"><span>Ціна, грн / ніч</span>' + moneyInput('price', p && p.price, onReq ? ' disabled' : '') + '</label>' +
       '<label class="check period-req"><input type="checkbox" name="onRequest"' + (onReq ? ' checked' : '') + '><span>Ціна за домовленістю</span></label>' +
       '<div class="season-btns"><button class="mini' + (p ? ' mini--dark' : '') + '">' + (p ? 'Зберегти' : 'Додати сезон') + '</button>' +
       (p ? '<button class="mini" type="button" data-del="' + p.id + '">Видалити</button>' : '') + '</div></form>';
@@ -280,12 +292,12 @@
       return '<section class="abox pobj pobj--t' + o.tone + '">' +
         '<div class="abox__head"><h2>' + esc(o.name) + '</h2><span class="muted small">' + esc(o.guestsText) + ' · від ' + money(P.minPrice(id)) + ' / ніч</span></div>' +
         '<form class="pobj__base" data-prices="' + id + '"><div class="pobj__fields">' +
-        num('price', 'Ціна за ніч, грн', o.price, 1) +
-        num('extraGuestPrice', 'Доплата за гостя, грн / ніч', o.extraGuestPrice, 0) +
-        num('baseGuests', 'Гостей у ціні', o.baseGuests, 1) +
-        num('maxGuests', 'Максимум гостей', o.maxGuests, 1) +
-        num('minNights', 'Мінімум ночей', o.minNights, 1) +
-        num('units', 'Однакових одиниць', o.units, 1) + '</div>' +
+        moneyField('price', 'Ціна за ніч, грн', o.price) +
+        moneyField('extraGuestPrice', 'Доплата за гостя, грн / ніч', o.extraGuestPrice) +
+        count('baseGuests', 'Гостей у ціні', o.baseGuests) +
+        count('maxGuests', 'Максимум гостей', o.maxGuests) +
+        count('minNights', 'Мінімум ночей', o.minNights) +
+        count('units', 'Однакових одиниць', o.units) + '</div>' +
         '<div class="pobj__tiers"><span class="pobj__label">Знижка за тривалість</span><div class="tiers">' + o.tiers.map(tierRow).join('') + '</div>' +
         '<button type="button" class="linkbtn" data-tier-add>+ додати знижку</button></div>' +
         '<button class="mini mini--dark">Зберегти</button></form></section>';
@@ -295,7 +307,7 @@
       '<div class="extras-admin">' + data.extras.map(function (e) {
         var tiers = e.guestPrices || [];
         return '<form class="extra-row" data-extra="' + e.key + '"><b>' + esc(e.name) + '<small>' + esc(e.unitLabel) + '</small></b>' +
-          num('price', tiers.length ? 'Ціна, якщо гостей більше' : 'Ціна, грн', e.price, 1) +
+          moneyField('price', tiers.length ? 'Ціна, якщо гостей більше' : 'Ціна, грн', e.price) +
           '<div class="pobj__tiers"><span class="pobj__label">Ціна за кількістю гостей</span><div class="tiers">' + tiers.map(guestTierRow).join('') + '</div>' +
           '<button type="button" class="linkbtn" data-gtier-add>+ додати рядок</button></div>' +
           '<button class="mini mini--dark">Зберегти</button></form>';

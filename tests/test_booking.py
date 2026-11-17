@@ -1,6 +1,5 @@
 """Бронювання на живому сайті: ціни прикладів, одиниці, подвійне бронювання, мінімум ночей, адмінка, seed."""
 
-import re
 import threading
 from datetime import date
 from unittest import mock
@@ -259,14 +258,6 @@ def test_admin_price_accepts_any_integer(ramshill):
     # сезон і послуга — так само
     assert s.admin("period", objectId=big, name="Свято", start="2027-03-01", end="2027-03-03", price=20000).status_code == 200
     assert s.admin("extra-price", key="chan", price=20000).status_code == 200
-
-
-def test_price_inputs_have_step_1():
-    """Усі числові поля адмінки — з кроком 1, без step="100"/"500", які блокували такі ціни."""
-    js = open(f"{ROOT}/static/js/admin.js", encoding="utf-8").read()
-    steps = re.findall(r'type="number"[^>]*?step="([^"]+)"', js)
-    assert steps and set(steps) == {"1"}
-    assert len(re.findall(r'type="number"', js)) == len(steps)      # жодного числового поля без step
 
 
 def test_admin_edits_object_settings_and_extras(blackhouse):
