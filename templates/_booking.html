@@ -114,7 +114,7 @@
       <li class="rule reveal">{{ icon("clock", 22) }}<div><strong>Заїзд і виїзд</strong>{% for o in objects %}<span>{{ o.name }}: заїзд з {{ o.check_in }}, виїзд до {{ o.check_out }}.</span>{% endfor %}</div></li>
       {% endif %}
       {% if min_nights_max > 1 %}
-      <li class="rule reveal">{{ icon("calendar", 22) }}<div><strong>Мінімальний термін</strong>{% for o in objects if o.min_nights > 1 %}<span>{{ o.name }}: від {{ o.min_nights }} {{ plural(o.min_nights, "ночі", "ночей", "ночей") }}.</span>{% endfor %}</div></li>
+      <li class="rule reveal">{{ icon("calendar", 22) }}<div><strong>Мінімальний термін</strong>{% for o in objects if o.min_nights > 1 %}<span>{{ o.name }}: від {{ o.min_nights }} {{ plural(o.min_nights, "ночі", "ночей", "ночей") }}.</span>{% endfor %}{% for o in objects if o.weekend_min_nights and o.weekend_min_nights > o.min_nights %}<span>{{ o.name if objects|length > 1 else "На вихідні" }}{% if objects|length > 1 %} на вихідні{% endif %}: від {{ o.weekend_min_nights }} {{ plural(o.weekend_min_nights, "ночі", "ночей", "ночей") }}, якщо серед ночей є п'ятниця чи субота.</span>{% endfor %}</div></li>
       {% endif %}
       {% if rules.pets %}<li class="rule reveal">{{ icon("paw", 22) }}<div><strong>Домашні тварини</strong><span>{{ rules.pets }}</span></div></li>{% endif %}
       {% if rules.smoking %}<li class="rule reveal">{{ icon("nosmoke", 22) }}<div><strong>Куріння</strong><span>{{ rules.smoking }}</span></div></li>{% endif %}

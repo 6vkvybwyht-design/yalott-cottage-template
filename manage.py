@@ -446,6 +446,8 @@ def render_config(d, source="python manage.py new-client"):
         add(f"    extra_guest_price: {o['extra_guest_price']}   # [БАЗА] доплата за гостя понад базу, грн за ніч"
             f"{note(o, 'extra_guest_price')}")
         add(f"    min_nights: {o['min_nights']}        # [БАЗА] мінімум ночей{note(o, 'min_nights')}")
+        add("    # weekend_price: 4500              # [БАЗА] ціна ночі в пт і сб (необов'язково), порожньо — як у будні")
+        add("    # weekend_min_nights: 2            # [БАЗА] мінімум ночей, якщо серед них є пт чи сб (необов'язково)")
         for key in ("bedrooms", "bathrooms"):
             if o.get(key) is not None:
                 add(f"    {key}: {o[key]}")

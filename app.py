@@ -135,8 +135,10 @@ def validate_booking(body, objects, extra_keys, today):
         raise db_.BookingError("Дата заїзду вже минула")
     if check_out > (date.fromisoformat(today) + timedelta(days=BOOKING_HORIZON_DAYS)).isoformat():
         raise db_.BookingError("Бронювання відкрите лише на рік уперед")
-    if len(P.nights_between(check_in, check_out)) < obj["minNights"]:
-        raise db_.BookingError(f"«{obj['name']}»: мінімальне бронювання — ночей: {obj['minNights']}")
+    need = P.min_nights_for(obj, check_in, check_out)
+    if len(P.nights_between(check_in, check_out)) < need:
+        weekend = " (якщо є ніч п'ятниці чи суботи)" if need > obj["minNights"] else ""
+        raise db_.BookingError(f"«{obj['name']}»: мінімальне бронювання — ночей: {need}{weekend}")
 
     guests = body.get("guests")
     guests = guests if isinstance(guests, int) and not isinstance(guests, bool) else _int(guests if isinstance(guests, str) else None)
@@ -336,6 +338,7 @@ def object_cards(db, site):
         card = dict(o, id=p["id"], price=p["price"], tiers=p["tiers"], price_from=P.min_price(p),
                     units=p["units"], base_guests=p["baseGuests"], max_guests=p["maxGuests"],
                     extra_guest_price=p["extraGuestPrice"], min_nights=p["minNights"],
+                    weekend_price=p["weekendPrice"], weekend_min_nights=p["weekendMinNights"],
                     guests_text=p["guestsText"], photos=gallery.photos(o["folder"], o["name"]),
                     cover=gallery.cover(o))
         card["facts"] = object_facts(card)
@@ -347,7 +350,7 @@ def common_page_data(db, site, cards):
     extras = [dict(e, photo_src=gallery.find(site.media("extras"), e["photo"])) for e in db_.extras_list(db)]
     times = {(c["check_in"], c["check_out"]) for c in cards}
     return {"extras": extras, "same_times": len(times) <= 1,
-            "min_nights_max": max((c["min_nights"] for c in cards), default=1)}
+            "min_nights_max": max((max(c["min_nights"], c["weekend_min_nights"] or 0) for c in cards), default=1)}
 
 
 def register_routes(app):

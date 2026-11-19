@@ -322,7 +322,12 @@ def validate(raw, check_photos=True, static_dir=None, media="media"):
             elif base < top and not fee:
                 c.warn(where, f"базова ціна — за {base} гостей, максимум {top}, але доплату (extra_guest_price) "
                               f"не вказано — додаткові гості житимуть безкоштовно")
-        c.integer(o, "min_nights", where, default=1, low=1, high=30)
+        mn = c.integer(o, "min_nights", where, default=1, low=1, high=30)
+        c.integer(o, "weekend_price", where, low=1, high=1_000_000)
+        wmn = c.integer(o, "weekend_min_nights", where, low=1, high=30)
+        if _is_int(mn) and _is_int(wmn) and wmn < mn:
+            c.warn(where, f"мінімум на вихідні (weekend_min_nights = {wmn}) менший за звичайний (min_nights = {mn}) — "
+                          f"діятиме звичайний")
         c.integer(o, "bedrooms", where, low=0, high=30)
         c.integer(o, "bathrooms", where, low=0, high=30)
         c.time(o, "check_in", where)
@@ -590,6 +595,7 @@ class SiteConfig:
                 "intro": paragraphs[0] if paragraphs else "", "description": paragraphs,
                 "units": o.get("units") or 1, "price": o["price"], "base_guests": base, "max_guests": top,
                 "extra_guest_price": o.get("extra_guest_price") or 0, "min_nights": o.get("min_nights") or 1,
+                "weekend_price": o.get("weekend_price") or None, "weekend_min_nights": o.get("weekend_min_nights") or None,
                 "tiers": sorted(({"nights": t["nights"], "price": t["price"]} for t in o.get("long_stay") or []),
                                 key=lambda t: t["nights"]),
                 "bedrooms": o.get("bedrooms"), "bathrooms": o.get("bathrooms"),

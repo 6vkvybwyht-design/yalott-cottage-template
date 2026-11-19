@@ -1,6 +1,6 @@
 /*
  * Розрахунок ціни в браузері — точна копія pricing.py:
- *   разом = Σ по ночах (ціна сезону або базова) + ночі × гості понад базу × доплата + послуги.
+ *   разом = Σ по ночах (ціна сезону, вихідних або базова) + ночі × гості понад базу × доплата + послуги.
  * Сервер однаково перераховує суму сам, тож це лише попередній розрахунок для гостя.
  */
 (function () {
@@ -10,6 +10,8 @@
   function toISO(d) { return d.toISOString().slice(0, 10); }
   function addDays(iso, n) { var d = toDate(iso); d.setUTCDate(d.getUTCDate() + n); return toISO(d); }
   function nightsBetween(a, b) { var out = []; for (var d = a; d < b; d = addDays(d, 1)) out.push(d); return out; }
+  /** Ніч п'ятниці чи суботи (ніч = дата, з якої вона починається). */
+  function isWeekend(iso) { var w = toDate(iso).getUTCDay(); return w === 5 || w === 6; }
 
   /**
    * objects = {"1": {id, price, tiers: [{nights, price}], baseGuests, maxGuests, extraGuestPrice, minNights, units, ...}, ...}
@@ -31,7 +33,18 @@
     }
     function minPrice(id) {
       var o = obj(id);
-      return Math.min.apply(null, [o.price].concat(o.tiers.map(function (t) { return t.price; })));
+      return Math.min.apply(null, [o.price].concat(o.tiers.map(function (t) { return t.price; }), o.weekendPrice ? [o.weekendPrice] : []));
+    }
+    /** Мінімум ночей для бронювання checkIn → checkOut: якщо є ніч вихідних — не менше weekendMinNights. */
+    function minNightsFor(id, checkIn, checkOut) {
+      var o = obj(id), base = o.minNights || 1, weekend = o.weekendMinNights || 0;
+      if (weekend > base && nightsBetween(checkIn, checkOut).some(isWeekend)) return weekend;
+      return base;
+    }
+    /** Найменша можлива кількість ночей від заїзду checkIn (для підказок у календарі). */
+    function minNightsFrom(id, checkIn) {
+      var base = obj(id).minNights || 1;
+      return minNightsFor(id, checkIn, addDays(checkIn, base));
     }
     function periodFor(id, iso) {
       var general = null;
@@ -48,7 +61,8 @@
     function dayPrice(id, iso) {
       var p = periodFor(id, iso);
       if (p) return p.price;
-      return obj(id).price;
+      var o = obj(id);
+      return o.weekendPrice && isWeekend(iso) ? o.weekendPrice : o.price;
     }
 
     /** Ціна послуги для такої кількості гостей: перший поріг guestPrices, у який вони вміщаються. */
@@ -69,6 +83,7 @@
         var p = periodFor(id, iso), price, kind, label;
         if (p && p.price == null) { missing.push(iso); return; }
         if (p) { price = p.price; kind = 'period'; label = p.name || 'особливий період'; }
+        else if (o.weekendPrice && isWeekend(iso)) { price = o.weekendPrice; kind = 'weekend'; label = 'пт і сб'; }
         else { price = r.price; kind = r.tier ? 'tier' : 'base'; label = r.tier ? 'від ' + r.tier + ' ночей' : ''; }
         var key = price + '|' + kind + '|' + label;
         if (!groups[key]) { groups[key] = { price: price, kind: kind, label: label, count: 0 }; order.push(key); }
@@ -106,7 +121,7 @@
     }
 
     return { CONFIG: C, objects: objects, extras: extras, obj: obj, quote: quote, rateFor: rateFor,
-      minPrice: minPrice, periodFor: periodFor, dayPrice: dayPrice, checkoutLimit: checkoutLimit,
+      minPrice: minPrice, minNightsFor: minNightsFor, minNightsFrom: minNightsFrom, periodFor: periodFor, dayPrice: dayPrice, checkoutLimit: checkoutLimit,
       extraUnitPrice: extraUnitPrice, extraQuantity: extraQuantity };
   }
 
@@ -114,7 +129,7 @@
   function shortPrice(n) { return n < 1000 ? String(n) : (n / 1000).toLocaleString('uk-UA', { maximumFractionDigits: 1 }) + 'к'; }
 
   window.FHPricing = {
-    make: make, toDate: toDate, toISO: toISO, addDays: addDays, nightsBetween: nightsBetween,
+    make: make, isWeekend: isWeekend, toDate: toDate, toISO: toISO, addDays: addDays, nightsBetween: nightsBetween,
     formatUAH: formatUAH, shortPrice: shortPrice
   };
 })();

@@ -1,4 +1,4 @@
--- Структура бази даних сайту (SQLite), версія 3.
+-- Структура бази даних сайту (SQLite), версія 4.
 -- Створюється автоматично під час першого запуску; початкові дані — з config/site.yaml (python manage.py seed).
 
 PRAGMA foreign_keys = ON;
@@ -15,7 +15,10 @@ CREATE TABLE IF NOT EXISTS objects (
     max_guests        INTEGER NOT NULL CHECK (max_guests >= base_guests),
     extra_guest_price INTEGER NOT NULL DEFAULT 0 CHECK (extra_guest_price >= 0),  -- за гостя понад базу, за ніч
     min_nights        INTEGER NOT NULL DEFAULT 1 CHECK (min_nights >= 1),
-    tiers             TEXT    NOT NULL DEFAULT '[]'   -- знижка за тривалість, JSON: [{"nights": 3, "price": 4000}]
+    tiers             TEXT    NOT NULL DEFAULT '[]',  -- знижка за тривалість, JSON: [{"nights": 3, "price": 4000}]
+    -- Вихідні (необов'язково; у старих базах колонки доливає database.init_db): NULL — як у будні.
+    weekend_price      INTEGER CHECK (weekend_price IS NULL OR weekend_price > 0),          -- ніч пт і сб
+    weekend_min_nights INTEGER CHECK (weekend_min_nights IS NULL OR weekend_min_nights >= 1) -- мінімум, якщо є ніч пт / сб
 );
 
 -- Сезони (новорічні свята тощо). object_id NULL — для всіх об'єктів.
