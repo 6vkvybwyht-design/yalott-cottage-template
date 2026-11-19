@@ -2,16 +2,19 @@
 {%- set S = url_for('static', filename='') -%}
 {%- set home = url_for('index') -%}
 <!doctype html>
-<html lang="{{ site.seo.lang }}" data-theme="{{ brand.theme }}">
+<html lang="{{ site.seo.lang }}" data-theme="{{ brand.theme }}"{% if demo %} data-demo data-yd="{{ demo.id }}" data-dh="{{ demo.hosts }}"{% endif %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{% block title %}{{ site.seo.title }}{% endblock %}</title>
   <meta name="description" content="{% block description %}{{ site.seo.description }}{% endblock %}">
   <meta name="csrf-token" content="{{ csrf_token }}">
+  {% if demo %}<meta name="robots" content="{{ demo.noindex }}">
+  <meta name="author" content="Yalott Studio">
+  <meta name="generator" content="Yalott Studio · yalott-demo:{{ demo.id }}">{% endif %}
   <meta property="og:title" content="{{ self.title() }}">
   <meta property="og:description" content="{{ self.description() }}">
-  {% if og_image %}<meta property="og:image" content="{{ url_for('static', filename=og_image, _external=True) }}">{% endif %}
+  {% if og_image %}<meta property="og:image" content="{{ media_url(og_image, external=True) }}">{% endif %}
   <meta property="og:type" content="website">
   <meta property="og:locale" content="{{ 'uk_UA' if site.seo.lang == 'uk' else site.seo.lang }}">
   {% if favicon %}<link rel="icon" href="{{ S }}{{ favicon }}">
@@ -25,6 +28,9 @@
   {% block head %}{% endblock %}
 </head>
 <body class="dark-top {% block body_class %}{% endblock %}">
+{% if demo %}<!-- Демо-версія сайту від Yalott Studio. Копіювання й використання заборонено. yalott-demo:{{ demo.id }} -->
+<div class="demo-mark" aria-hidden="true"></div>
+<p class="demo-bar"><b>Демо</b> · Yalott Studio{% if demo.until %} · до {{ demo.until }}{% endif %}</p>{% endif %}
 
 <header class="site-header" id="top">
   <div class="container header-inner">
@@ -80,7 +86,7 @@
     </div>
   </div>
   <div class="container footer-bottom">
-    <span>© {{ current_year }} {{ brand.full_name }}</span>
+    <span>© {{ current_year }} {{ brand.full_name }}{% if demo %}{{ demo.mark }}{% endif %}</span>
     <span>Сайт розроблено <a href="{{ site.studio.url }}" target="_blank" rel="noopener">{{ site.studio.name }}</a> · <a href="{{ url_for('admin.login') }}">Вхід для власника</a></span>
   </div>
 </footer>

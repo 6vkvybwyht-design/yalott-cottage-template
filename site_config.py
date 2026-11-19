@@ -223,7 +223,7 @@ def validate(raw, check_photos=True, static_dir=None, media="media"):
     icons = known_icons()
     _find_secrets(raw, "", c)
 
-    known_top = {"brand", "contacts", "objects", "extras", "seasons", "rules", "sections", "about", "perks",
+    known_top = {"demo", "brand", "contacts", "objects", "extras", "seasons", "rules", "sections", "about", "perks",
                  "gallery", "reviews", "faq", "nearby", "seo", "studio", "integrations"}
     for key in raw:
         if key not in known_top:
@@ -474,6 +474,27 @@ def validate(raw, check_photos=True, static_dir=None, media="media"):
     # --- integrations (v2: iCal тощо) — посилання лише https:// на адреси в інтернеті ---
     _check_integration_urls(c.section(raw, "integrations", dict), "integrations", c)
 
+    # --- demo (демо-версія для продажу) ---
+    demo = c.section(raw, "demo", dict)
+    if demo:
+        enabled = demo.get("enabled", False)
+        if not isinstance(enabled, bool):
+            c.err("demo → enabled", f"має бути true або false (вказано «{enabled}»)")
+        domain = demo.get("domain")
+        if domain not in (None, ""):
+            if not isinstance(domain, str) or "://" in domain or "/" in domain or not re.fullmatch(
+                    r"(?=.{4,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9-]{2,63}", domain.strip().lower()):
+                c.err("demo → domain", f"лише ім'я сайту без https:// і без шляху, напр. ramshill.1-2-3-4.sslip.io "
+                                       f"(вказано «{domain}»)")
+        elif enabled is True:
+            c.err("demo → domain", "у демо-режимі потрібен домен, на якому демо дозволено відкривати "
+                                   "(напр. ramshill.1-2-3-4.sslip.io) — інакше копію можна запустити деінде")
+        c.integer(demo, "days", "demo", default=14, low=1, high=90)
+        c.integer(demo, "link_version", "demo", default=1, low=1, high=1000)
+        for key in demo:
+            if key not in ("enabled", "domain", "days", "link_version"):
+                c.warn(f"demo → {key}", "невідоме поле (пароль демо — лише DEMO_PASSWORD у .env)")
+
     # --- seo ---
     seo = c.section(raw, "seo", dict)
     c.text(seo, "title", "seo", max_len=90)
@@ -624,6 +645,10 @@ class SiteConfig:
                        "url": g(studio, "url", "https://yalott-studio.netlify.app")}
         # Зарезервовано під v2 (iCal, онлайн-оплата, Telegram-бот). Зараз сайт цей розділ лише зберігає.
         self.integrations = raw.get("integrations") or {}
+        demo = raw.get("demo") or {}
+        self.demo = {"enabled": demo.get("enabled") is True,
+                     "domain": str(demo.get("domain") or "").strip().lower().rstrip("."),
+                     "days": demo.get("days") or 14, "link_version": demo.get("link_version") or 1}
 
     def media(self, sub):
         """Папка фото відносно static/: media("hero") → media/hero."""

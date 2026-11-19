@@ -655,3 +655,19 @@ html[data-theme="dark"] .btn, html[data-theme="dark"] .card, html[data-theme="da
 html[data-theme="dark"] { --radius: 14px; --radius-sm: 10px; }
 @media (min-width: 1700px) { .container { max-width: 1320px; } .hero-text { max-width: 620px; } }
 @media (max-width: 420px) { .obj-foot { flex-direction: column; align-items: stretch; } .obj-actions .btn { flex: 1; } .hero-actions .btn { flex: 1 1 100%; } }
+
+/* ---------- демо-режим (config: demo.enabled) ---------- */
+/* Напис поверх усієї сторінки: не заважає клікам, але видно на кожному скріншоті. */
+.demo-mark { position: fixed; inset: 0; z-index: 9998; pointer-events: none; opacity: .07;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='240'%3E%3Ctext x='210' y='120' fill='%23888' font-family='Onest,Arial,sans-serif' font-size='26' font-weight='600' text-anchor='middle' transform='rotate(-28 210 120)'%3E%D0%94%D0%B5%D0%BC%D0%BE %C2%B7 Yalott Studio%3C/text%3E%3C/svg%3E");
+  background-repeat: repeat; }
+.demo-bar { position: fixed; left: 12px; bottom: 12px; z-index: 9999; margin: 0; padding: 7px 14px; border-radius: 999px;
+  background: rgba(10, 10, 10, .82); color: #fff; font-size: 13px; letter-spacing: .02em; pointer-events: none;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .25); }
+.demo-bar b { color: #f3c26b; font-weight: 600; }
+@media (max-width: 760px) { .demo-bar { top: calc(var(--header-h) + 8px); bottom: auto; left: auto; right: 12px; padding: 5px 11px; font-size: 11px; } }
+html[data-demo] img { -webkit-user-drag: none; user-select: none; }
+/* Демо відкрили на чужому домені (static/js/main.js) */
+.demo-stolen { display: grid; place-items: center; min-height: 100vh; padding: 24px; text-align: center;
+  background: #0f1011; color: #f2efe9; font: 500 18px/1.5 Onest, system-ui, sans-serif; }
+.demo-stolen strong { display: block; font-size: 26px; margin-bottom: 8px; color: #f3c26b; }

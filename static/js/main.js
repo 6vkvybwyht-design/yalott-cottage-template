@@ -6,6 +6,33 @@
   var $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
   var V = window.FHPricing;
 
+  /* ---------- Демо-версія: працює лише на своєму домені ---------- */
+  // Сервер кладе в <html data-dh> відбитки дозволених доменів (FNV-1a, як demo.host_hash). Якщо демо скопіювали
+  // й відкрили деінде — сайт не запускається, а замість нього видно, чиє це демо.
+  function hostHash(host) {
+    var h = 0x811c9dc5, bytes = unescape(encodeURIComponent(String(host).toLowerCase()));
+    for (var i = 0; i < bytes.length; i++) { h ^= bytes.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return ("0000000" + h.toString(16)).slice(-8);
+  }
+  var root = document.documentElement;
+  if (root.hasAttribute("data-demo")) {
+    var allowed = (root.getAttribute("data-dh") || "").split(",");
+    if (allowed.indexOf(hostHash(location.hostname)) === -1) {
+      var box = document.createElement("div"), title = document.createElement("strong");
+      box.className = "demo-stolen";
+      title.textContent = "Демо-версія Yalott Studio";
+      box.appendChild(title);
+      box.appendChild(document.createTextNode("Цей сайт — демо, розроблене Yalott Studio (yalott-demo:" +
+        (root.getAttribute("data-yd") || "") + "). Копіювання й використання без договору заборонено."));
+      document.body.textContent = "";
+      document.body.appendChild(box);
+      return;
+    }
+    // фото в демо не зберігаються правим кліком і перетягуванням (водяний знак і так вшитий у фото)
+    document.addEventListener("contextmenu", function (e) { if (e.target.closest("img, .gallery-item, .hero")) e.preventDefault(); });
+    document.addEventListener("dragstart", function (e) { if (e.target.tagName === "IMG") e.preventDefault(); });
+  }
+
   /* ---------- Шапка та меню ---------- */
   var header = $(".site-header"), nav = $("#nav"), toggle = $(".nav-toggle");
   function closeMenu() {

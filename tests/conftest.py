@@ -44,7 +44,9 @@ class Site:
         self.client.get("/")
         with self.client.session_transaction() as s:
             self.csrf = s["csrf"]
-        self.ids = {o["key"]: o["id"] for o in self.get("/api/availability")["objects"].values()}
+        import database as db_
+        with self.app.app_context():       # з бази, а не через API: у демо без посилання API закритий
+            self.ids = {o["key"]: oid for oid, o in db_.objects(db_.get_db()).items()}
 
     def get(self, url):
         return self.client.get(url).get_json()

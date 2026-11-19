@@ -131,6 +131,27 @@ sudo -u yalott bash -c 'cd /home/yalott/sites/НАЗВА && .venv/bin/python man
 sudo deploy НАЗВА
 ```
 
+### Демо-версія для показу клієнту
+
+Демо — той самий сайт, але з `demo.enabled: true` у конфігу (див. README, розділ «Демо-версія для продажу»).
+Домен демо (`demo.domain`) — тестова адреса сайту, яку показав `new-site`: `НАЗВА.<IP-з-дефісами>.sslip.io`.
+
+```bash
+sudo -u yalott bash -c 'cd /home/yalott/sites/НАЗВА && .venv/bin/python manage.py demo-link'
+```
+
+Перевірка після запуску демо:
+
+```bash
+curl -sI https://НАЗВА.<IP-з-дефісами>.sslip.io/ | grep -iE '^HTTP|x-robots-tag'
+```
+
+Має бути `403` і `x-robots-tag: noindex, nofollow, noarchive, nosnippet, noimageindex`: без посилання сайт закритий.
+Відкрийте посилання з `demo-link` — має відкритися сайт із плашкою «Демо · Yalott Studio» і водяними знаками на фото.
+
+Клієнт оплатив: `demo.enabled: false` у конфігу, закомітьте, `sudo deploy НАЗВА`, потім `sudo set-domain` і
+`sudo secure-site` — далі як для звичайного сайту.
+
 ### Оновлення сайту
 
 ```bash

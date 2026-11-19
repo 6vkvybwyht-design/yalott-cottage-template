@@ -1,0 +1,49 @@
+{%- set S = url_for('static', filename='') -%}
+{#- Демо-версія закрита: немає посилання, минув термін, чужий домен або потрібен пароль. Без даних клієнта. -#}
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+  <title>Демо-версія сайту · {{ studio.name }}</title>
+  <link rel="icon" href="{{ url_for('favicon') }}">
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ S }}css/style.css{{ V }}">
+  <link rel="stylesheet" href="{{ S }}css/admin.css{{ V }}">
+</head>
+<body class="admin admin-dark">
+<section class="login">
+  {% if reason == "password" %}
+  <form class="login__box" method="post" action="{{ url_for('demo_password') }}">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    <p class="login__name">Демо-версія</p>
+    <h1>Введіть пароль</h1>
+    <p class="muted">Пароль надіслав вам {{ studio.name }} разом із посиланням.</p>
+    {% if error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
+    <label class="field"><span>Пароль</span><input type="password" name="password" autocomplete="current-password" required autofocus></label>
+    <button class="btn btn-primary btn-block">Відкрити демо</button>
+  </form>
+  {% else %}
+  <div class="login__box">
+    <p class="login__name">{{ studio.name }}</p>
+    {% if reason == "expired" %}
+    <h1>Термін демо минув</h1>
+    <p class="muted">Посилання на демо-версію сайту діяло обмежений час. Напишіть нам — надішлемо нове.</p>
+    {% elif reason == "domain" %}
+    <h1>Демо-версія {{ studio.name }}</h1>
+    <p class="muted">Цей сайт — демо-версія, розроблена {{ studio.name }}. Вона працює лише за нашою адресою.
+      Копіювання й використання без договору заборонено.</p>
+    {% elif reason == "revoked" %}
+    <h1>Посилання вимкнено</h1>
+    <p class="muted">Це посилання на демо більше не діє. Напишіть нам — надішлемо актуальне.</p>
+    {% else %}
+    <h1>Демо-версія сайту</h1>
+    <p class="muted">Сайт відкривається лише за персональним посиланням від {{ studio.name }}.</p>
+    {% endif %}
+    <a class="btn btn-primary btn-block" href="{{ studio.url }}" rel="noopener">{{ studio.name }}</a>
+  </div>
+  {% endif %}
+</section>
+</body>
+</html>

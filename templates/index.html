@@ -17,8 +17,8 @@
 {%- set hero_thumb = thumb_for(hero) -%}
 <section class="hero{% if not hero %} hero--plain{% endif %}">
   {% if hero %}
-  <img class="hero-bg" src="{{ url_for('static', filename=hero) }}"
-    {%- if hero_thumb %} srcset="{{ url_for('static', filename=hero_thumb) }} 600w, {{ url_for('static', filename=hero) }} 1600w" sizes="100vw"{% endif %}
+  <img class="hero-bg" src="{{ media_url(hero) }}"
+    {%- if hero_thumb %} srcset="{{ media_url(hero_thumb) }} 600w, {{ media_url(hero) }} 1600w" sizes="100vw"{% endif %}
     alt="{{ brand.full_name }}" fetchpriority="high" decoding="async">
   {% endif %}
   <div class="hero-shade" aria-hidden="true"></div>
@@ -88,7 +88,7 @@
       {% for e in extras %}
       <article class="service reveal">
         <div class="service-media">
-          {% if e.photo_src %}<img class="photo" src="{{ url_for('static', filename=thumb_for(e.photo_src) or e.photo_src) }}" alt="{{ e.name }}" loading="lazy" decoding="async">
+          {% if e.photo_src %}<img class="photo" src="{{ media_url(thumb_for(e.photo_src) or e.photo_src) }}" alt="{{ e.name }}" loading="lazy" decoding="async">
           {% else %}<div class="ph ph--t{{ loop.index0 % 3 + 1 }} ph--sm" role="img" aria-label="{{ e.name }}"><span class="ph-icon">{{ icon(e.icon, 34) }}</span></div>{% endif %}
         </div>
         <div class="service-body">
