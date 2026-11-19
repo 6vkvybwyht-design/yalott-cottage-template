@@ -501,8 +501,11 @@ def validate(raw, check_photos=True, static_dir=None, media="media"):
                                    "(напр. ramshill.1-2-3-4.sslip.io) — інакше копію можна запустити деінде")
         c.integer(demo, "days", "demo", default=14, low=1, high=90)
         c.integer(demo, "link_version", "demo", default=1, low=1, high=1000)
+        mark = demo.get("watermark")             # «off» без лапок YAML читає як false — теж «без знака»
+        if mark not in (None, "", False) and mark not in ("subtle", "grid", "off"):
+            c.err("demo → watermark", f"має бути subtle (підпис у куті), grid (сітка на все фото) або off (вказано «{mark}»)")
         for key in demo:
-            if key not in ("enabled", "domain", "days", "link_version"):
+            if key not in ("enabled", "domain", "days", "link_version", "watermark"):
                 c.warn(f"demo → {key}", "невідоме поле (пароль демо — лише DEMO_PASSWORD у .env)")
 
     # --- seo ---
@@ -660,7 +663,8 @@ class SiteConfig:
         demo = raw.get("demo") or {}
         self.demo = {"enabled": demo.get("enabled") is True,
                      "domain": str(demo.get("domain") or "").strip().lower().rstrip("."),
-                     "days": demo.get("days") or 14, "link_version": demo.get("link_version") or 1}
+                     "days": demo.get("days") or 14, "link_version": demo.get("link_version") or 1,
+                     "watermark": "off" if demo.get("watermark") is False else (demo.get("watermark") or "subtle")}
 
     def media(self, sub):
         """Папка фото відносно static/: media("hero") → media/hero."""

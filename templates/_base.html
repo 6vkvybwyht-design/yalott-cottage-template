@@ -30,7 +30,7 @@
 </head>
 <body class="dark-top {% block body_class %}{% endblock %}">
 {% if demo %}<!-- Демо-версія сайту від Yalott Studio. Копіювання й використання заборонено. yalott-demo:{{ demo.id }} -->
-<div class="demo-mark" aria-hidden="true"></div>
+{% if demo.grid %}<div class="demo-mark" aria-hidden="true"></div>{% endif %}
 <p class="demo-bar"><b>Демо</b> · Yalott Studio{% if demo.until %} · до {{ demo.until }}{% endif %}</p>{% endif %}
 
 <header class="site-header" id="top">

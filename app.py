@@ -268,6 +268,7 @@ def create_app(test_config=None):
             until = grant.get("exp")
             info = {"id": demo_id, "hosts": demo_hosts, "mark": demo.invisible_mark(demo_id),
                     "domain": site.demo["domain"], "noindex": demo.NOINDEX,
+                    "grid": site.demo["watermark"] == "grid",
                     "until": datetime.fromtimestamp(until, TZ).strftime("%d.%m.%Y") if isinstance(until, int) else ""}
         return {"csrf_token": session["csrf"], "current_year": now_local().year, "site": site,
                 "brand": brand, "contacts": site.contacts, "rules": site.rules, "sections": site.sections,
@@ -503,7 +504,8 @@ def register_demo(app, site, secret):
 
     @app.get("/demo-img/<path:src>")
     def demo_image(src):
-        path = demo.cached_watermark(static_dir, cache_dir, src, app.extensions["demo_id"], site.demo["domain"])
+        path = demo.cached_watermark(static_dir, cache_dir, src, app.extensions["demo_id"], site.demo["domain"],
+                                     site.demo["watermark"])
         if path is None:
             abort(404)
         return send_file(path, mimetype="image/webp", max_age=0, conditional=True)

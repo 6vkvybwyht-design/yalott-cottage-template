@@ -523,6 +523,7 @@ def render_config(d, source="python manage.py new-client"):
     add('  domain: ""                    # адреса демо на сервері, напр. назва.1-2-3-4.sslip.io')
     add("  days: 14                      # скільки діє посилання")
     add("  link_version: 1               # збільште, щоб скасувати всі видані посилання")
+    add("  watermark: subtle             # знак у фото: subtle (підпис у куті) | grid (сітка) | off")
     add("")
     add("seo:")
     add(f"  title: {q(d['seo_title'])}")
