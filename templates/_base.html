@@ -2,7 +2,7 @@
 {%- set S = url_for('static', filename='') -%}
 {%- set home = url_for('index') -%}
 <!doctype html>
-<html lang="{{ site.seo.lang }}" data-theme="{{ brand.theme }}"{% if demo %} data-demo data-yd="{{ demo.id }}" data-dh="{{ demo.hosts }}"{% endif %}>
+<html lang="{{ site.seo.lang }}" data-theme="{{ brand.theme }}"{% if demo %} data-demo data-wm="{{ demo.watermark }}" data-yd="{{ demo.id }}" data-dh="{{ demo.hosts }}"{% endif %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -23,13 +23,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Onest:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  {% if brand.fonts %}<link href="https://fonts.googleapis.com/css2?{{ brand.fonts }}&display=swap" rel="stylesheet">{% endif %}
   <link rel="stylesheet" href="{{ S }}css/style.css{{ V }}">
   {% if theme_css %}<link rel="stylesheet" href="{{ url_for('theme_css') }}{{ V }}">{% endif %}
   {% block head %}{% endblock %}
 </head>
 <body class="dark-top {% block body_class %}{% endblock %}">
 {% if demo %}<!-- Демо-версія сайту від Yalott Studio. Копіювання й використання заборонено. yalott-demo:{{ demo.id }} -->
-<div class="demo-mark" aria-hidden="true"></div>
+{% if demo.grid %}<div class="demo-mark" aria-hidden="true"></div>{% endif %}
 <p class="demo-bar"><b>Демо</b> · Yalott Studio{% if demo.until %} · до {{ demo.until }}{% endif %}</p>{% endif %}
 
 <header class="site-header" id="top">

@@ -135,8 +135,10 @@ def validate_booking(body, objects, extra_keys, today):
         raise db_.BookingError("Дата заїзду вже минула")
     if check_out > (date.fromisoformat(today) + timedelta(days=BOOKING_HORIZON_DAYS)).isoformat():
         raise db_.BookingError("Бронювання відкрите лише на рік уперед")
-    if len(P.nights_between(check_in, check_out)) < obj["minNights"]:
-        raise db_.BookingError(f"«{obj['name']}»: мінімальне бронювання — ночей: {obj['minNights']}")
+    need = P.min_nights_for(obj, check_in, check_out)
+    if len(P.nights_between(check_in, check_out)) < need:
+        weekend = " (якщо є ніч п'ятниці чи суботи)" if need > obj["minNights"] else ""
+        raise db_.BookingError(f"«{obj['name']}»: мінімальне бронювання — ночей: {need}{weekend}")
 
     guests = body.get("guests")
     guests = guests if isinstance(guests, int) and not isinstance(guests, bool) else _int(guests if isinstance(guests, str) else None)
@@ -172,12 +174,20 @@ def theme_overrides(brand):
         rules += [f"--primary:{brand['primary_color']}", f"--on-primary:{_contrast(brand['primary_color'])}"]
     if brand["accent_color"]:
         rules.append(f"--accent:{brand['accent_color']}")
-    return "html[data-theme]{" + ";".join(rules) + "}\n" if rules else ""
+    css = "html[data-theme]{" + ";".join(rules) + "}\n" if rules else ""
+    if brand.get("hero_focus"):
+        # Точка фокусу банера (brand.hero_focus) — для вузького кадру на телефоні. Там вона важливіша за
+        # прив'язку до кута з підписом у демо (subtle): інакше банер показує не те, заради чого фото обрано.
+        # На широкому екрані кадр майже повний — лишаються правила теми й демо.
+        css += ("@media (max-width:760px){html[data-theme] .hero-bg{object-position:"
+                f"{brand['hero_focus']} !important}}}}\n")
+    return css
 
 
 def favicon_svg(brand):
     letter = (re.sub(r"[^\w]", "", brand["name"]) or "•")[0].upper()
-    bg = brand["primary_color"] or {"dark": "#17181a", "wood": "#3a2a1d", "forest": "#16301f"}[brand["theme"]]
+    bg = brand["primary_color"] or {"dark": "#17181a", "wood": "#3a2a1d", "forest": "#16301f",
+                                      "midnight": "#0d1a2e", "cabin": "#1d3326"}[brand["theme"]]
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="{bg}"/>'
             f'<text x="32" y="44" font-family="Georgia,serif" font-size="36" text-anchor="middle" '
             f'fill="{_contrast(bg)}">{letter}</text></svg>')
@@ -265,6 +275,7 @@ def create_app(test_config=None):
             until = grant.get("exp")
             info = {"id": demo_id, "hosts": demo_hosts, "mark": demo.invisible_mark(demo_id),
                     "domain": site.demo["domain"], "noindex": demo.NOINDEX,
+                    "grid": site.demo["watermark"] == "grid", "watermark": site.demo["watermark"],
                     "until": datetime.fromtimestamp(until, TZ).strftime("%d.%m.%Y") if isinstance(until, int) else ""}
         return {"csrf_token": session["csrf"], "current_year": now_local().year, "site": site,
                 "brand": brand, "contacts": site.contacts, "rules": site.rules, "sections": site.sections,
@@ -336,6 +347,7 @@ def object_cards(db, site):
         card = dict(o, id=p["id"], price=p["price"], tiers=p["tiers"], price_from=P.min_price(p),
                     units=p["units"], base_guests=p["baseGuests"], max_guests=p["maxGuests"],
                     extra_guest_price=p["extraGuestPrice"], min_nights=p["minNights"],
+                    weekend_price=p["weekendPrice"], weekend_min_nights=p["weekendMinNights"],
                     guests_text=p["guestsText"], photos=gallery.photos(o["folder"], o["name"]),
                     cover=gallery.cover(o))
         card["facts"] = object_facts(card)
@@ -347,7 +359,7 @@ def common_page_data(db, site, cards):
     extras = [dict(e, photo_src=gallery.find(site.media("extras"), e["photo"])) for e in db_.extras_list(db)]
     times = {(c["check_in"], c["check_out"]) for c in cards}
     return {"extras": extras, "same_times": len(times) <= 1,
-            "min_nights_max": max((c["min_nights"] for c in cards), default=1)}
+            "min_nights_max": max((max(c["min_nights"], c["weekend_min_nights"] or 0) for c in cards), default=1)}
 
 
 def register_routes(app):
@@ -499,7 +511,8 @@ def register_demo(app, site, secret):
 
     @app.get("/demo-img/<path:src>")
     def demo_image(src):
-        path = demo.cached_watermark(static_dir, cache_dir, src, app.extensions["demo_id"], site.demo["domain"])
+        path = demo.cached_watermark(static_dir, cache_dir, src, app.extensions["demo_id"], site.demo["domain"],
+                                     site.demo["watermark"])
         if path is None:
             abort(404)
         return send_file(path, mimetype="image/webp", max_age=0, conditional=True)

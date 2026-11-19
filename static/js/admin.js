@@ -297,7 +297,9 @@
         count('baseGuests', 'Гостей у ціні', o.baseGuests) +
         count('maxGuests', 'Максимум гостей', o.maxGuests) +
         count('minNights', 'Мінімум ночей', o.minNights) +
-        count('units', 'Однакових одиниць', o.units) + '</div>' +
+        count('units', 'Однакових одиниць', o.units) +
+        '<label class="field"><span>Ціна в пт і сб, грн / ніч <em>порожньо — як у будні</em></span>' + moneyInput('weekendPrice', o.weekendPrice) + '</label>' +
+        '<label class="field"><span>Мінімум ночей, якщо є пт чи сб <em>порожньо — як завжди</em></span><input name="weekendMinNights" type="number" inputmode="numeric" min="1" step="1" value="' + VALUE(o.weekendMinNights) + '"></label>' + '</div>' +
         '<div class="pobj__tiers"><span class="pobj__label">Знижка за тривалість</span><div class="tiers">' + o.tiers.map(tierRow).join('') + '</div>' +
         '<button type="button" class="linkbtn" data-tier-add>+ додати знижку</button></div>' +
         '<button class="mini mini--dark">Зберегти</button></form></section>';
@@ -340,7 +342,8 @@
     var f = e.target, id = +f.getAttribute('data-prices');
     var tiers = $$('.tier-row', f).map(function (r) { return { nights: +$('[name=tn]', r).value, price: +$('[name=tp]', r).value }; });
     API.saveObjectPrices({ id: id, price: f.price.value, tiers: tiers, extraGuestPrice: f.extraGuestPrice.value,
-      baseGuests: f.baseGuests.value, maxGuests: f.maxGuests.value, minNights: f.minNights.value, units: f.units.value })
+      baseGuests: f.baseGuests.value, maxGuests: f.maxGuests.value, minNights: f.minNights.value, units: f.units.value,
+      weekendPrice: f.weekendPrice.value, weekendMinNights: f.weekendMinNights.value })
       .then(function () { return done('«' + obj(id).name + '» — збережено'); })
       .catch(function (ex) { toast(ex.message); });
   });

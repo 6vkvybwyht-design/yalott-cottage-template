@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ACTIVE = ("new", "confirmed")
 STATUSES = ("new", "confirmed", "cancelled")
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 OWNER_SOURCES = ("owner", "demo")   # закриття, якими керує власник в адмінці
 
 
@@ -98,6 +98,7 @@ def init_db(path, cfg, with_demo=False, today=None):
                 f"Вкажіть інший файл у DATABASE_PATH або перейменуйте стару базу.")
         with open(os.path.join(BASE_DIR, "schema.sql"), encoding="utf-8") as f:
             conn.executescript(f.read())
+        add_missing_columns(conn)
         report = seed(conn, cfg)
         if with_demo:
             seed_demo(conn, cfg, today or date.today())
@@ -105,6 +106,24 @@ def init_db(path, cfg, with_demo=False, today=None):
         return report
     finally:
         conn.close()
+
+
+# Колонки, доданих у новіших версіях шаблону: у старій базі доливаються порожніми (NULL = «як раніше»).
+# Лише ADD COLUMN — наявні дані не змінюються.
+NEW_COLUMNS = {
+    "objects": (
+        ("weekend_price", "INTEGER CHECK (weekend_price IS NULL OR weekend_price > 0)"),
+        ("weekend_min_nights", "INTEGER CHECK (weekend_min_nights IS NULL OR weekend_min_nights >= 1)"),
+    ),
+}
+
+
+def add_missing_columns(conn):
+    for table, columns in NEW_COLUMNS.items():
+        have = _columns(conn, table)
+        for name, ddl in columns:
+            if name not in have:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}")
 
 
 def _season_key(s):
@@ -129,14 +148,16 @@ def seed(conn, cfg, reset=False):
         rows = {r["key"]: r for r in conn.execute("SELECT * FROM objects")}
         for o in cfg.objects:
             values = (o["units"], o["price"], o["base_guests"], o["max_guests"], o["extra_guest_price"],
-                      o["min_nights"], json.dumps(o["tiers"]))
+                      o["min_nights"], json.dumps(o["tiers"]), o["weekend_price"], o["weekend_min_nights"])
             if o["key"] not in rows:
                 conn.execute("INSERT INTO objects (units, price, base_guests, max_guests, extra_guest_price, "
-                             "min_nights, tiers, key) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (*values, o["key"]))
+                             "min_nights, tiers, weekend_price, weekend_min_nights, key) "
+                             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (*values, o["key"]))
                 report["added"].append(f"об'єкт «{o['name']}» — {P.format_uah(o['price'])} / ніч")
             elif reset:
                 conn.execute("UPDATE objects SET units = ?, price = ?, base_guests = ?, max_guests = ?, "
-                             "extra_guest_price = ?, min_nights = ?, tiers = ? WHERE key = ?", (*values, o["key"]))
+                             "extra_guest_price = ?, min_nights = ?, tiers = ?, weekend_price = ?, "
+                             "weekend_min_nights = ? WHERE key = ?", (*values, o["key"]))
                 report["updated"].append(f"об'єкт «{o['name']}» — ціни й параметри з конфігу")
             else:
                 r = rows[o["key"]]
@@ -334,6 +355,7 @@ def _object_dict(o, r):
         "units": r["units"], "price": r["price"], "tiers": _tiers(r["tiers"]),
         "baseGuests": r["base_guests"], "maxGuests": r["max_guests"], "extraGuestPrice": r["extra_guest_price"],
         "minNights": r["min_nights"], "guestsText": guests_text(r["base_guests"], r["max_guests"]),
+        "weekendPrice": r["weekend_price"], "weekendMinNights": r["weekend_min_nights"],
         "checkIn": o["check_in"], "checkOut": o["check_out"],
     }
 
@@ -362,7 +384,8 @@ def objects_json(db):
 
 
 def save_object_settings(db, object_id, data):
-    """Ціна, знижки за тривалість, гості, одиниці, мінімум ночей — усе, що власник змінює в адмінці.
+    """Ціна, знижки за тривалість, гості, одиниці, мінімум ночей, ціна й мінімум на вихідні — усе,
+    що власник змінює в адмінці. weekendPrice / weekendMinNights = None — «як у будні».
 
     tiers: [{"nights": 2, "price": 2200}, ...] — пороги ночей мають бути різні й більші за 1.
     """
@@ -380,10 +403,12 @@ def save_object_settings(db, object_id, data):
         raise BookingError("Гостей у базовій ціні не може бути більше, ніж максимум гостей")
     db.execute(
         "UPDATE objects SET price = ?, tiers = ?, extra_guest_price = ?, min_nights = ?, base_guests = ?, "
-        "max_guests = ?, units = ? WHERE id = ?",
+        "max_guests = ?, units = ?, weekend_price = ?, weekend_min_nights = ? WHERE id = ?",
         (data["price"], json.dumps(sorted(data["tiers"], key=lambda t: t["nights"])),
          data.get("extraGuestPrice", current["extraGuestPrice"]), data.get("minNights", current["minNights"]),
-         base, top, data.get("units", current["units"]), object_id))
+         base, top, data.get("units", current["units"]),
+         data.get("weekendPrice", current["weekendPrice"]), data.get("weekendMinNights", current["weekendMinNights"]),
+         object_id))
 
 
 # ---------- Додаткові послуги ----------

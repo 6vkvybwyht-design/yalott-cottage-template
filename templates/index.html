@@ -26,6 +26,7 @@
     <div class="hero-text">
       {% if brand.kind or contacts.region %}<p class="kicker">{{ icon("mountain", 16) }} {{ brand.kind or contacts.region }}</p>{% endif %}
       <h1>{{ brand.name }}</h1>
+      {% if brand.slogan %}<p class="hero-slogan">{{ brand.slogan }}</p>{% endif %}
       <p class="hero-lead">{{ brand.description or brand.tagline }}</p>
       <p class="hero-price">від <strong>{{ price_from|uah }}</strong> / ніч</p>
       <div class="hero-actions">

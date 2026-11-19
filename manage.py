@@ -407,7 +407,7 @@ def render_config(d, source="python manage.py new-client"):
     add('  logo: ""                             # шлях у static/, напр. media/brand/logo.png. Порожньо — назва текстом')
     add('  logo_light: ""                       # логотип для темного тла (шапка). Порожньо = logo')
     add('  favicon: ""                          # іконка вкладки. Порожньо — літера з назви')
-    add(f"  theme: {d['theme']}                 # dark | wood | forest{note(d, 'theme')}")
+    add(f"  theme: {d['theme']}                 # dark | wood | forest | midnight | cabin{note(d, 'theme')}")
     add('  primary_color: ""                    # свій колір кнопок, напр. "#3a2a1d"')
     add('  accent_color: ""                     # свій акцентний колір')
     add("")
@@ -446,6 +446,8 @@ def render_config(d, source="python manage.py new-client"):
         add(f"    extra_guest_price: {o['extra_guest_price']}   # [БАЗА] доплата за гостя понад базу, грн за ніч"
             f"{note(o, 'extra_guest_price')}")
         add(f"    min_nights: {o['min_nights']}        # [БАЗА] мінімум ночей{note(o, 'min_nights')}")
+        add("    # weekend_price: 4500              # [БАЗА] ціна ночі в пт і сб (необов'язково), порожньо — як у будні")
+        add("    # weekend_min_nights: 2            # [БАЗА] мінімум ночей, якщо серед них є пт чи сб (необов'язково)")
         for key in ("bedrooms", "bathrooms"):
             if o.get(key) is not None:
                 add(f"    {key}: {o[key]}")
@@ -521,6 +523,7 @@ def render_config(d, source="python manage.py new-client"):
     add('  domain: ""                    # адреса демо на сервері, напр. назва.1-2-3-4.sslip.io')
     add("  days: 14                      # скільки діє посилання")
     add("  link_version: 1               # збільште, щоб скасувати всі видані посилання")
+    add("  watermark: subtle             # знак у фото: subtle (підпис у куті) | grid (сітка) | off")
     add("")
     add("seo:")
     add(f"  title: {q(d['seo_title'])}")
@@ -545,9 +548,10 @@ def wizard():
     d["kind"] = ask("Тип закладу перед назвою (Котеджі / Приватна садиба; можна порожньо)", "")
     d["tagline"] = ask("Слоган, один рядок", "Котеджі в Карпатах")
     d["description"] = ask("Опис для головної, 1–2 речення", d["tagline"])
-    themes = {"1": "dark", "2": "wood", "3": "forest"}
-    choice = ask("Тема: 1 — dark (чорна, теплі вогні), 2 — wood (світла, дерево), 3 — forest (темно-зелена)", "2",
-                 lambda v: None if v in themes or v in themes.values() else "Введіть 1, 2 або 3.")
+    themes = {"1": "dark", "2": "wood", "3": "forest", "4": "midnight", "5": "cabin"}
+    choice = ask("Тема: 1 — dark (чорна, теплі вогні), 2 — wood (світла, дерево), 3 — forest (темно-зелена), "
+                 "4 — midnight (темно-синя із золотом), 5 — cabin (тепле дерево, глибокий зелений, мідь)", "2",
+                 lambda v: None if v in themes or v in themes.values() else "Введіть число від 1 до 5.")
     d["theme"] = themes.get(choice, choice)
 
     print("\n— Контакти —")

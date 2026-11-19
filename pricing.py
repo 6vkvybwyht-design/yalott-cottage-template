@@ -8,6 +8,9 @@
   • Об'єкт (рядок таблиці objects): price — базова ціна за ніч за baseGuests гостей;
     extraGuestPrice — доплата за кожного гостя понад baseGuests за кожну ніч; tiers — необов'язкова
     знижка за тривалість [{"nights": 3, "price": 4000}] (діє найбільший досягнутий поріг).
+  • Вихідні (необов'язково): weekendPrice — ціна ночі з п'ятниці на суботу й із суботи на неділю
+    (замість базової й замість знижки за тривалість; сезон важливіший). weekendMinNights — мінімум ночей,
+    якщо серед ночей бронювання є ніч п'ятниці чи суботи. Порожньо (None) — як у будні.
   • Сезон (таблиця periods): price задано — на ці ночі діє вона (бронь може перетинати межу сезону,
     кожна ніч рахується за своєю ціною); price порожня — «ціна за домовленістю», сума не рахується.
     Сезон конкретного об'єкта має пріоритет над сезоном «для всіх».
@@ -36,6 +39,23 @@ def nights_between(check_in, check_out):
     return out
 
 
+# Ночі вихідних: ніч = дата, з якої вона починається, тож п'ятниця (4) і субота (5) за date.weekday().
+WEEKEND_NIGHTS = (4, 5)
+
+
+def is_weekend(iso):
+    return _d(iso).weekday() in WEEKEND_NIGHTS
+
+
+def min_nights_for(obj, check_in, check_out):
+    """Мінімум ночей для саме цього бронювання: звичайний, а якщо є ніч вихідних — не менше weekendMinNights."""
+    base = int(obj.get("minNights") or 1)
+    weekend = int(obj.get("weekendMinNights") or 0)
+    if weekend > base and any(is_weekend(n) for n in nights_between(check_in, check_out)):
+        return weekend
+    return base
+
+
 def rate_for(obj, nights):
     """Базова ціна за ніч для бронювання на nights ночей (зі знижкою за тривалість) і поріг, що спрацював."""
     price, tier = obj["price"], None
@@ -46,7 +66,8 @@ def rate_for(obj, nights):
 
 
 def min_price(obj):
-    return min([obj["price"]] + [t["price"] for t in obj.get("tiers") or []])
+    weekend = [obj["weekendPrice"]] if obj.get("weekendPrice") else []
+    return min([obj["price"]] + [t["price"] for t in obj.get("tiers") or []] + weekend)
 
 
 def period_for(periods, object_id, iso):
@@ -77,7 +98,7 @@ def extra_quantity(unit, nights, guests):
 def quote(obj, periods, extras, check_in, check_out, guests, extra_keys=(), prepayment_percent=0):
     """Розрахунок вартості. total = None, якщо хоч одна ніч «за домовленістю».
 
-    obj    — {"id", "price", "tiers", "baseGuests", "extraGuestPrice"}
+    obj    — {"id", "price", "tiers", "baseGuests", "extraGuestPrice", "weekendPrice" (необов'язково)}
     extras — [{"key", "name", "price", "unit", "guestPrices"}] (усі доступні послуги)
     """
     nights = nights_between(check_in, check_out)
@@ -93,6 +114,8 @@ def quote(obj, periods, extras, check_in, check_out, guests, extra_keys=(), prep
             continue
         if p:
             price, kind, label = int(p["price"]), "period", p.get("name") or "особливий період"
+        elif obj.get("weekendPrice") and is_weekend(iso):
+            price, kind, label = int(obj["weekendPrice"]), "weekend", "пт і сб"
         else:
             price, kind, label = rate, ("tier" if tier else "base"), (f"від {tier} ночей" if tier else "")
         g = groups.setdefault((price, kind, label), {"price": price, "kind": kind, "label": label,

@@ -23,7 +23,14 @@ import yaml
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_PATH = os.path.join(BASE_DIR, "config", "site.yaml")
 
-THEMES = ("dark", "wood", "forest")
+THEMES = ("dark", "wood", "forest", "midnight", "cabin")
+# Свої шрифти теми (Google Fonts, запит css2 без display): тема без запису — лише спільні шрифти з _base.html.
+THEME_FONTS = {
+    "midnight": "family=Prata&family=Tenor+Sans",
+    "cabin": "family=Lora:ital,wght@0,500;0,600;1,500&family=Caveat:wght@600",
+}
+# brand.hero_focus: «30% 50%» — де на фото банера головне (по горизонталі, по вертикалі); діє на телефоні.
+HERO_FOCUS_RE = re.compile(r"^(100|[1-9]?[0-9])% (100|[1-9]?[0-9])%$")
 # Одиниця ціни послуги → (підпис, множник: n — ночі, g — гості).
 EXTRA_UNITS = {
     "evening": "за вечір",
@@ -233,6 +240,11 @@ def validate(raw, check_photos=True, static_dir=None, media="media"):
     brand = c.section(raw, "brand", dict, required=True)
     c.text(brand, "name", "brand", required=True, max_len=60)
     c.text(brand, "tagline", "brand", max_len=140)
+    c.text(brand, "slogan", "brand", max_len=120)
+    focus = brand.get("hero_focus")
+    if focus not in (None, "") and not (isinstance(focus, str) and HERO_FOCUS_RE.match(focus.strip())):
+        c.err("brand → hero_focus", 'точка фокусу банера — два відсотки через пробіл: "30% 50%" '
+              "(по горизонталі й по вертикалі; 0% — лівий / верхній край)")
     theme = brand.get("theme")
     if theme in (None, ""):
         c.err("brand → theme", f"не вказано тему. Оберіть одну з: {', '.join(THEMES)}")
@@ -322,7 +334,12 @@ def validate(raw, check_photos=True, static_dir=None, media="media"):
             elif base < top and not fee:
                 c.warn(where, f"базова ціна — за {base} гостей, максимум {top}, але доплату (extra_guest_price) "
                               f"не вказано — додаткові гості житимуть безкоштовно")
-        c.integer(o, "min_nights", where, default=1, low=1, high=30)
+        mn = c.integer(o, "min_nights", where, default=1, low=1, high=30)
+        c.integer(o, "weekend_price", where, low=1, high=1_000_000)
+        wmn = c.integer(o, "weekend_min_nights", where, low=1, high=30)
+        if _is_int(mn) and _is_int(wmn) and wmn < mn:
+            c.warn(where, f"мінімум на вихідні (weekend_min_nights = {wmn}) менший за звичайний (min_nights = {mn}) — "
+                          f"діятиме звичайний")
         c.integer(o, "bedrooms", where, low=0, high=30)
         c.integer(o, "bathrooms", where, low=0, high=30)
         c.time(o, "check_in", where)
@@ -491,8 +508,11 @@ def validate(raw, check_photos=True, static_dir=None, media="media"):
                                    "(напр. ramshill.1-2-3-4.sslip.io) — інакше копію можна запустити деінде")
         c.integer(demo, "days", "demo", default=14, low=1, high=90)
         c.integer(demo, "link_version", "demo", default=1, low=1, high=1000)
+        mark = demo.get("watermark")             # «off» без лапок YAML читає як false — теж «без знака»
+        if mark not in (None, "", False) and mark not in ("subtle", "grid", "off"):
+            c.err("demo → watermark", f"має бути subtle (підпис у куті), grid (сітка на все фото) або off (вказано «{mark}»)")
         for key in demo:
-            if key not in ("enabled", "domain", "days", "link_version"):
+            if key not in ("enabled", "domain", "days", "link_version", "watermark"):
                 c.warn(f"demo → {key}", "невідоме поле (пароль демо — лише DEMO_PASSWORD у .env)")
 
     # --- seo ---
@@ -550,6 +570,7 @@ class SiteConfig:
         name = str(b["name"]).strip()
         self.brand = {
             "name": name, "kind": g(b, "kind"), "tagline": g(b, "tagline"), "description": g(b, "description"),
+            "slogan": g(b, "slogan"), "hero_focus": g(b, "hero_focus"), "fonts": THEME_FONTS.get(b["theme"], ""),
             "logo": g(b, "logo"), "logo_light": g(b, "logo_light") or g(b, "logo"), "favicon": g(b, "favicon"),
             "theme": b["theme"], "primary_color": g(b, "primary_color"), "accent_color": g(b, "accent_color"),
             "booking_prefix": g(b, "booking_prefix") or _prefix(name),
@@ -590,6 +611,7 @@ class SiteConfig:
                 "intro": paragraphs[0] if paragraphs else "", "description": paragraphs,
                 "units": o.get("units") or 1, "price": o["price"], "base_guests": base, "max_guests": top,
                 "extra_guest_price": o.get("extra_guest_price") or 0, "min_nights": o.get("min_nights") or 1,
+                "weekend_price": o.get("weekend_price") or None, "weekend_min_nights": o.get("weekend_min_nights") or None,
                 "tiers": sorted(({"nights": t["nights"], "price": t["price"]} for t in o.get("long_stay") or []),
                                 key=lambda t: t["nights"]),
                 "bedrooms": o.get("bedrooms"), "bathrooms": o.get("bathrooms"),
@@ -648,7 +670,8 @@ class SiteConfig:
         demo = raw.get("demo") or {}
         self.demo = {"enabled": demo.get("enabled") is True,
                      "domain": str(demo.get("domain") or "").strip().lower().rstrip("."),
-                     "days": demo.get("days") or 14, "link_version": demo.get("link_version") or 1}
+                     "days": demo.get("days") or 14, "link_version": demo.get("link_version") or 1,
+                     "watermark": "off" if demo.get("watermark") is False else (demo.get("watermark") or "subtle")}
 
     def media(self, sub):
         """Папка фото відносно static/: media("hero") → media/hero."""

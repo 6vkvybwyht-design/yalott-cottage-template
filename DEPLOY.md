@@ -147,7 +147,7 @@ curl -sI https://НАЗВА.<IP-з-дефісами>.sslip.io/ | grep -iE '^HTTP
 ```
 
 Має бути `403` і `x-robots-tag: noindex, nofollow, noarchive, nosnippet, noimageindex`: без посилання сайт закритий.
-Відкрийте посилання з `demo-link` — має відкритися сайт із плашкою «Демо · Yalott Studio» і водяними знаками на фото.
+Відкрийте посилання з `demo-link` — має відкритися сайт із плашкою «Демо · Yalott Studio» і знаком «Yalott Studio · демо» в куті кожного фото (або сіткою, якщо `demo.watermark: grid`).
 
 Клієнт оплатив: `demo.enabled: false` у конфігу, закомітьте, `sudo deploy НАЗВА`, потім `sudo set-domain` і
 `sudo secure-site` — далі як для звичайного сайту.

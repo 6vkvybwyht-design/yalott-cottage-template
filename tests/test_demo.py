@@ -91,7 +91,7 @@ def test_link_opens_demo_with_all_marks(demo_site):
     assert '<meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">' in html
     assert r.headers["X-Robots-Tag"] == demo.NOINDEX and "no-store" in r.headers["Cache-Control"]
     assert re.search(r'class="demo-bar"><b>Демо</b> · Yalott Studio · до \d\d\.\d\d\.\d{4}', html)
-    assert 'class="demo-mark"' in html
+    assert 'class="demo-mark"' not in html                                          # типово (subtle) — без сітки
     assert f"/demo-img/{PHOTO}" in html and f"/static/{PHOTO}" not in html            # усі фото — зі знаком
     assert demo.find_marks(html) == [fid]
     # невидима позначка в тексті переживає копіювання тексту без HTML
@@ -112,9 +112,58 @@ def test_demo_marks_absent_when_demo_is_off(make_site):
 
 # ---------- фото з вшитим водяним знаком ----------
 
-def test_photos_are_watermarked(demo_site):
+def marked_and_original(s):
+    r = s.client.get(f"/demo-img/{PHOTO}")
+    assert r.status_code == 200 and r.mimetype == "image/webp"
+    marked = Image.open(io.BytesIO(r.data)).convert("RGB")
+    original = Image.open(os.path.join(ROOT, "static", PHOTO)).convert("RGB")
+    assert marked.size == original.size
+    exif = Image.open(io.BytesIO(r.data)).getexif()                                 # позначка в метаданих — завжди
+    assert exif[0x013B] == "Yalott Studio" and f"yalott-demo:{s.app.extensions['demo_id']}" in exif[0x010E]
+    return marked, ImageChops.difference(marked, original).convert("L")
+
+
+def test_subtle_watermark_is_one_small_corner_signature(demo_site):
+    """Типово: один маленький напівпрозорий підпис «Yalott Studio · демо» в правому нижньому куті, решта фото чиста."""
     s = demo_site
     enter(s)
+    assert s.cfg.demo["watermark"] == "subtle"
+    marked, diff = marked_and_original(s)
+    w, h = marked.size
+    corner = diff.crop((w * 2 // 3, h * 85 // 100, w, h))
+    rest = diff.crop((0, 0, w, h * 80 // 100))
+    assert strong(corner, 15) > 150                                                  # підпис є й вшитий у пікселі
+    assert strong(rest, 25) < w * h * 0.0005                                         # без сітки на фото
+    assert strong(diff, 25) / (w * h) < 0.01                                         # маленький
+    peak = max(ImageChops.difference(marked.crop((w * 2 // 3, h * 85 // 100, w, h)).convert("L"),
+                                     Image.new("L", (w - w * 2 // 3, h - h * 85 // 100), 255)).getextrema())
+    assert peak > 40                                                                 # напівпрозорий, не суцільно білий
+    assert 'class="demo-mark"' not in s.html("/")                                    # і без сітки поверх сторінки
+    assert 'data-wm="subtle"' in s.html("/")                     # кадрування фото від кута з підписом (style.css)
+    css = open(os.path.join(ROOT, "static", "css", "style.css"), encoding="utf-8").read()
+    assert 'html[data-wm="subtle"] .hero-bg, html[data-wm="subtle"] img.photo' in css
+    assert 'class="demo-bar"' in s.html("/")                                         # плашка з датою лишається
+
+
+def test_watermark_off_keeps_only_metadata(make_site, tmp_path):
+    s = make_site(demo_config(tmp_path, watermark="off"))
+    enter(s)
+    marked, diff = marked_and_original(s)
+    assert strong(diff, 40) < marked.width * marked.height * 0.0005                 # лише перестиснення
+    assert 'class="demo-mark"' not in s.html("/") and 'class="demo-bar"' in s.html("/")
+
+
+def test_watermark_style_validated(tmp_path):
+    raw = site_config.read_yaml(demo_config(tmp_path, watermark="big"))
+    errors, _ = site_config.validate(raw, check_photos=False)
+    assert any("demo → watermark" in e for e in errors)
+
+
+def test_photos_are_watermarked(make_site, tmp_path):
+    """watermark: grid — сітка напису по всьому фото, плашка внизу й сітка поверх сторінки."""
+    s = make_site(demo_config(tmp_path, watermark="grid"))
+    enter(s)
+    assert 'class="demo-mark"' in s.html("/")
     r = s.client.get(f"/demo-img/{PHOTO}")
     assert r.status_code == 200 and r.mimetype == "image/webp"
     assert r.headers["Cache-Control"] == "private, max-age=3600"
@@ -152,8 +201,9 @@ def test_watermark_cache_and_paths(demo_site):
 def test_watermark_function_without_font(tmp_path, monkeypatch):
     """Шрифт загубився — водяний знак однаково ставиться (латиницею), сайт не падає."""
     monkeypatch.setattr(demo, "FONT_PATH", str(tmp_path / "none.ttf"))
-    data = demo.watermark(os.path.join(ROOT, "static", PHOTO), "abc123abc123")
-    assert Image.open(io.BytesIO(data)).format == "WEBP"
+    for style in demo.WATERMARK_STYLES:
+        data = demo.watermark(os.path.join(ROOT, "static", PHOTO), "abc123abc123", style=style)
+        assert Image.open(io.BytesIO(data)).format == "WEBP"
 
 
 # ---------- термін, скасування, підробка ----------
@@ -401,3 +451,13 @@ def test_templates_load_photos_only_through_media_url():
         for arg in re.findall(r"url_for\(\s*'static'\s*,\s*filename\s*=\s*([^)]+)\)", text):
             assert arg.strip() in ("''", '""'), f"{os.path.relpath(path, ROOT)}: url_for('static', filename={arg}) — " \
                                                 "для фото використовуйте media_url()"
+
+
+def test_watermark_font_has_every_letter():
+    """У вкладеному шрифті (assets/watermark.ttf — підмножина) є всі літери обох написів, без «квадратиків»."""
+    from PIL import ImageFont
+    font = ImageFont.truetype(demo.FONT_PATH, 40)
+    missing = font.getmask("￿").getbbox()
+    for text in (demo.WATERMARK_TEXT, demo.SUBTLE_TEXT):
+        bad = [ch for ch in text if ch != " " and font.getmask(ch).getbbox() == missing]
+        assert not bad, f"{text}: немає літер {bad} — перегенеруйте шрифт (assets/README.md)"

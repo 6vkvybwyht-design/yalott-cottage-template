@@ -5,8 +5,8 @@
   • доступ лише за посиланням із терміном дії (за замовчуванням 14 днів) — python manage.py demo-link;
     без посилання, після терміну чи з чужого домену — сторінка «Демо Yalott Studio» замість сайту;
   • необов'язковий пароль — DEMO_PASSWORD у .env (секрет, тому не в конфігу);
-  • водяний знак «Демо · Yalott Studio» вшитий у самі фото (оригінали в демо недоступні),
-    плюс напис поверх сторінки;
+  • водяний знак вшитий у самі фото (оригінали в демо недоступні): типово — маленький підпис
+    «Yalott Studio · демо» в куті (demo.watermark: subtle), або сітка на все фото (grid), або без нього (off);
   • noindex усюди: заголовок X-Robots-Tag, meta robots, robots.txt «Disallow: /»;
   • код не працює на чужому домені: сервер перевіряє домен, а скрипт сторінки вимикає сайт,
     якщо його скопіювали й відкрили деінде;
@@ -32,7 +32,13 @@ from itsdangerous import BadSignature, URLSafeSerializer
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FONT_PATH = os.path.join(BASE_DIR, "assets", "watermark.ttf")
 WATERMARK_TEXT = "Демо · Yalott Studio"
-WATERMARK_VERSION = "4"            # змініть, якщо змінився вигляд водяного знака — кеш перегенерується
+SUBTLE_TEXT = "Yalott Studio · демо"
+WATERMARK_VERSION = "9"            # змініть, якщо змінився вигляд водяного знака — кеш перегенерується
+# Вигляд знака у фото (demo.watermark у конфігу):
+#   subtle — один маленький напівпрозорий підпис у правому нижньому куті (типово);
+#   grid   — діагональна сітка напису на все фото + плашка внизу й сітка поверх сторінки;
+#   off    — без видимого знака (лишаються позначка в метаданих фото й решта захисту).
+WATERMARK_STYLES = ("subtle", "grid", "off")            # змініть, якщо змінився вигляд водяного знака — кеш перегенерується
 LOCAL_HOSTS = ("localhost", "127.0.0.1")
 DEMO_PASSWORD_ATTEMPTS = 5         # невдалих спроб пароля з однієї IP за 15 хв
 NOINDEX = "noindex, nofollow, noarchive, nosnippet, noimageindex"
@@ -177,7 +183,32 @@ def _exif(fid, domain):
 
 
 @functools.lru_cache(maxsize=16)
-def _layer(w, h):
+def _subtle_layer(w, h):
+    """Один маленький напівпрозорий підпис у правому нижньому куті (~50 % непрозорості).
+    Щоб кадрування на сайті (object-fit: cover) не зрізало куток, у демо з subtle фото кадруються
+    від правого нижнього кута (static/css/style.css, html[data-wm="subtle"])."""
+    from PIL import Image, ImageDraw
+
+    size = max(11, int(min(w, h) / 38))
+    font = _font(size)
+    layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    left, top, right, bottom = d.textbbox((0, 0), SUBTLE_TEXT, font=font)
+    margin_x, margin_y = max(8, int(w * 0.035)), max(8, int(h * 0.04))
+    x, y = w - margin_x - (right - left) - left, h - margin_y - (bottom - top) - top
+    d.text((x + 1, y + 1), SUBTLE_TEXT, font=font, fill=(0, 0, 0, 70))            # м'яка тінь — читається на небі
+    d.text((x, y), SUBTLE_TEXT, font=font, fill=(255, 255, 255, 128))
+    return layer
+
+
+def _layer(w, h, style="grid"):
+    if style == "subtle":
+        return _subtle_layer(w, h)
+    return _grid_layer(w, h)
+
+
+@functools.lru_cache(maxsize=16)
+def _grid_layer(w, h):
     """Прозорий шар із водяним знаком для фото розміру w×h. Не залежить від змісту фото, тож для кожного
     розміру (повне фото, мініатюра, у двох орієнтаціях) малюється один раз на процес."""
     from PIL import Image, ImageDraw
@@ -216,31 +247,33 @@ def _layer(w, h):
     return layer
 
 
-def watermark(src_path, fid, domain=""):
-    """Фото з вшитим водяним знаком «Демо · Yalott Studio» (WebP-байти) і позначкою в метаданих."""
+def watermark(src_path, fid, domain="", style="subtle"):
+    """Фото з вшитим водяним знаком (WebP-байти) і позначкою в метаданих. style — див. WATERMARK_STYLES."""
     from PIL import Image, ImageOps
 
     with Image.open(src_path) as im:
         im = ImageOps.exif_transpose(im).convert("RGBA")
-    out = Image.alpha_composite(im, _layer(*im.size)).convert("RGB")
+    if style != "off":
+        im = Image.alpha_composite(im, _layer(*im.size, style=style))
+    out = im.convert("RGB")
     buf = io.BytesIO()
     out.save(buf, "WEBP", quality=80, method=2, exif=_exif(fid, domain))
     return buf.getvalue()
 
 
-def cached_watermark(static_dir, cache_dir, src, fid, domain=""):
+def cached_watermark(static_dir, cache_dir, src, fid, domain="", style="subtle"):
     """Шлях до готового фото з водяним знаком (кеш у instance/demo-cache, права 700/600). None — фото немає."""
     path = os.path.realpath(os.path.join(static_dir, src))
     media_root = os.path.realpath(os.path.join(static_dir, "media")) + os.sep
     if not path.startswith(media_root) or not os.path.isfile(path):
         return None                                   # лише фото з static/media, без «../»
     stat = os.stat(path)
-    key = hashlib.sha256(json.dumps([src, stat.st_mtime_ns, stat.st_size, fid, domain, WATERMARK_VERSION])
+    key = hashlib.sha256(json.dumps([src, stat.st_mtime_ns, stat.st_size, fid, domain, style, WATERMARK_VERSION])
                          .encode()).hexdigest()[:32]
     os.makedirs(cache_dir, mode=0o700, exist_ok=True)
     target = os.path.join(cache_dir, key + ".webp")
     if not os.path.exists(target):
-        data = watermark(path, fid, domain)
+        data = watermark(path, fid, domain, style)
         tmp = f"{target}.{os.getpid()}.tmp"
         fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         with os.fdopen(fd, "wb") as f:
@@ -259,6 +292,6 @@ def warm(site, static_dir, cache_dir, fid):
         for name in files:
             if name.lower().endswith((".jpg", ".jpeg", ".png", ".webp", ".avif")):
                 src = os.path.relpath(os.path.join(folder, name), static_dir).replace(os.sep, "/")
-                if cached_watermark(static_dir, cache_dir, src, fid, site.demo["domain"]):
+                if cached_watermark(static_dir, cache_dir, src, fid, site.demo["domain"], site.demo["watermark"]):
                     done += 1
     return done

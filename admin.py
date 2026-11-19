@@ -237,6 +237,11 @@ def object_prices():
         data = {"price": _price(body.get("price")), "tiers": tiers}
         if body.get("extraGuestPrice") not in (None, ""):
             data["extraGuestPrice"] = _price(body.get("extraGuestPrice"), low=0)
+        # Вихідні: поле надіслали порожнім — «як у будні» (None); не надіслали зовсім — не змінюємо.
+        if "weekendPrice" in body:
+            data["weekendPrice"] = _price(body.get("weekendPrice"), required=False)
+        if "weekendMinNights" in body:
+            data["weekendMinNights"] = _number(body, "weekendMinNights", 1, 30, "Мінімум ночей на вихідні")
         for key, low, high, label in (("minNights", 1, 30, "Мінімум ночей"), ("baseGuests", 1, 50, "Гостей у ціні"),
                                       ("maxGuests", 1, 50, "Максимум гостей"), ("units", 1, 50, "Кількість одиниць")):
             n = _number(body, key, low, high, label)
