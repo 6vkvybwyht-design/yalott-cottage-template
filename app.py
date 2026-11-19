@@ -174,13 +174,20 @@ def theme_overrides(brand):
         rules += [f"--primary:{brand['primary_color']}", f"--on-primary:{_contrast(brand['primary_color'])}"]
     if brand["accent_color"]:
         rules.append(f"--accent:{brand['accent_color']}")
-    return "html[data-theme]{" + ";".join(rules) + "}\n" if rules else ""
+    css = "html[data-theme]{" + ";".join(rules) + "}\n" if rules else ""
+    if brand.get("hero_focus"):
+        # Точка фокусу банера (brand.hero_focus) — для вузького кадру на телефоні. Там вона важливіша за
+        # прив'язку до кута з підписом у демо (subtle): інакше банер показує не те, заради чого фото обрано.
+        # На широкому екрані кадр майже повний — лишаються правила теми й демо.
+        css += ("@media (max-width:760px){html[data-theme] .hero-bg{object-position:"
+                f"{brand['hero_focus']} !important}}}}\n")
+    return css
 
 
 def favicon_svg(brand):
     letter = (re.sub(r"[^\w]", "", brand["name"]) or "•")[0].upper()
     bg = brand["primary_color"] or {"dark": "#17181a", "wood": "#3a2a1d", "forest": "#16301f",
-                                      "midnight": "#0d1a2e"}[brand["theme"]]
+                                      "midnight": "#0d1a2e", "cabin": "#1d3326"}[brand["theme"]]
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="{bg}"/>'
             f'<text x="32" y="44" font-family="Georgia,serif" font-size="36" text-anchor="middle" '
             f'fill="{_contrast(bg)}">{letter}</text></svg>')

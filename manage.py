@@ -407,7 +407,7 @@ def render_config(d, source="python manage.py new-client"):
     add('  logo: ""                             # шлях у static/, напр. media/brand/logo.png. Порожньо — назва текстом')
     add('  logo_light: ""                       # логотип для темного тла (шапка). Порожньо = logo')
     add('  favicon: ""                          # іконка вкладки. Порожньо — літера з назви')
-    add(f"  theme: {d['theme']}                 # dark | wood | forest | midnight{note(d, 'theme')}")
+    add(f"  theme: {d['theme']}                 # dark | wood | forest | midnight | cabin{note(d, 'theme')}")
     add('  primary_color: ""                    # свій колір кнопок, напр. "#3a2a1d"')
     add('  accent_color: ""                     # свій акцентний колір')
     add("")
@@ -548,10 +548,10 @@ def wizard():
     d["kind"] = ask("Тип закладу перед назвою (Котеджі / Приватна садиба; можна порожньо)", "")
     d["tagline"] = ask("Слоган, один рядок", "Котеджі в Карпатах")
     d["description"] = ask("Опис для головної, 1–2 речення", d["tagline"])
-    themes = {"1": "dark", "2": "wood", "3": "forest", "4": "midnight"}
+    themes = {"1": "dark", "2": "wood", "3": "forest", "4": "midnight", "5": "cabin"}
     choice = ask("Тема: 1 — dark (чорна, теплі вогні), 2 — wood (світла, дерево), 3 — forest (темно-зелена), "
-                 "4 — midnight (темно-синя із золотом)", "2",
-                 lambda v: None if v in themes or v in themes.values() else "Введіть 1, 2, 3 або 4.")
+                 "4 — midnight (темно-синя із золотом), 5 — cabin (тепле дерево, глибокий зелений, мідь)", "2",
+                 lambda v: None if v in themes or v in themes.values() else "Введіть число від 1 до 5.")
     d["theme"] = themes.get(choice, choice)
 
     print("\n— Контакти —")

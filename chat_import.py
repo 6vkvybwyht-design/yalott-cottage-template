@@ -469,7 +469,7 @@ def parse_chat(text, today=None, slugify=None):
          "telegram": "", "instagram": "", "tiktok": "", "email": "", "region": "", "coordinates": "",
          "directions": "", "pets": "", "smoking": "", "quiet": ""}
     flags = d["_flags"]
-    flags["theme"] = "ПЕРЕВІРИТИ: тему обирає студія — dark, wood, forest або midnight"
+    flags["theme"] = "ПЕРЕВІРИТИ: тему обирає студія — dark, wood, forest, midnight або cabin"
 
     # 1. назва й адреса
     first = part(1)
