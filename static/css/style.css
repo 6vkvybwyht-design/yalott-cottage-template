@@ -667,6 +667,10 @@ html[data-theme="dark"] { --radius: 14px; --radius-sm: 10px; }
 .demo-bar b { color: #f3c26b; font-weight: 600; }
 @media (max-width: 760px) { .demo-bar { top: calc(var(--header-h) + 8px); bottom: auto; left: auto; right: 12px; padding: 5px 11px; font-size: 11px; } }
 html[data-demo] img { -webkit-user-drag: none; user-select: none; }
+/* subtle: підпис «Yalott Studio · демо» — у правому нижньому куті фото (demo.py). Кадруємо від цього кута,
+   щоб object-fit: cover зрізав інші краї, а не підпис. Лише в демо: робочий сайт кадрує як завжди. */
+html[data-wm="subtle"] .hero-bg, html[data-wm="subtle"] img.photo, html[data-wm="subtle"] .gallery-item img { object-position: 100% 100% !important; }
+html[data-wm="subtle"] .obj-card:hover .obj-media img, html[data-wm="subtle"] .gallery-item:hover img { transform-origin: 100% 100%; }
 /* Демо відкрили на чужому домені (static/js/main.js) */
 .demo-stolen { display: grid; place-items: center; min-height: 100vh; padding: 24px; text-align: center;
   background: #0f1011; color: #f2efe9; font: 500 18px/1.5 Onest, system-ui, sans-serif; }

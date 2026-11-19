@@ -139,6 +139,9 @@ def test_subtle_watermark_is_one_small_corner_signature(demo_site):
                                      Image.new("L", (w - w * 2 // 3, h - h * 85 // 100), 255)).getextrema())
     assert peak > 40                                                                 # напівпрозорий, не суцільно білий
     assert 'class="demo-mark"' not in s.html("/")                                    # і без сітки поверх сторінки
+    assert 'data-wm="subtle"' in s.html("/")                     # кадрування фото від кута з підписом (style.css)
+    css = open(os.path.join(ROOT, "static", "css", "style.css"), encoding="utf-8").read()
+    assert 'html[data-wm="subtle"] .hero-bg, html[data-wm="subtle"] img.photo' in css
     assert 'class="demo-bar"' in s.html("/")                                         # плашка з датою лишається
 
 

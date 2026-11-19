@@ -2,7 +2,7 @@
 {%- set S = url_for('static', filename='') -%}
 {%- set home = url_for('index') -%}
 <!doctype html>
-<html lang="{{ site.seo.lang }}" data-theme="{{ brand.theme }}"{% if demo %} data-demo data-yd="{{ demo.id }}" data-dh="{{ demo.hosts }}"{% endif %}>
+<html lang="{{ site.seo.lang }}" data-theme="{{ brand.theme }}"{% if demo %} data-demo data-wm="{{ demo.watermark }}" data-yd="{{ demo.id }}" data-dh="{{ demo.hosts }}"{% endif %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
