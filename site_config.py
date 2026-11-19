@@ -23,7 +23,11 @@ import yaml
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_PATH = os.path.join(BASE_DIR, "config", "site.yaml")
 
-THEMES = ("dark", "wood", "forest")
+THEMES = ("dark", "wood", "forest", "midnight")
+# Свої шрифти теми (Google Fonts, запит css2 без display): тема без запису — лише спільні шрифти з _base.html.
+THEME_FONTS = {
+    "midnight": "family=Prata&family=Tenor+Sans",
+}
 # Одиниця ціни послуги → (підпис, множник: n — ночі, g — гості).
 EXTRA_UNITS = {
     "evening": "за вечір",
@@ -233,6 +237,7 @@ def validate(raw, check_photos=True, static_dir=None, media="media"):
     brand = c.section(raw, "brand", dict, required=True)
     c.text(brand, "name", "brand", required=True, max_len=60)
     c.text(brand, "tagline", "brand", max_len=140)
+    c.text(brand, "slogan", "brand", max_len=120)
     theme = brand.get("theme")
     if theme in (None, ""):
         c.err("brand → theme", f"не вказано тему. Оберіть одну з: {', '.join(THEMES)}")
@@ -555,6 +560,7 @@ class SiteConfig:
         name = str(b["name"]).strip()
         self.brand = {
             "name": name, "kind": g(b, "kind"), "tagline": g(b, "tagline"), "description": g(b, "description"),
+            "slogan": g(b, "slogan"), "fonts": THEME_FONTS.get(b["theme"], ""),
             "logo": g(b, "logo"), "logo_light": g(b, "logo_light") or g(b, "logo"), "favicon": g(b, "favicon"),
             "theme": b["theme"], "primary_color": g(b, "primary_color"), "accent_color": g(b, "accent_color"),
             "booking_prefix": g(b, "booking_prefix") or _prefix(name),

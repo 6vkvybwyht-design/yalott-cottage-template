@@ -147,7 +147,7 @@ def test_theme_colors_contacts():
     data["brand"].update(theme="blue", primary_color="коричневий")
     data["contacts"].update(phone="12345", instagram="https://instagram.com/ramshill", coordinates=[48.8], email="пошта")
     text = errors_of(data)
-    assert "немає теми «blue». Доступні: dark, wood, forest" in text
+    assert "немає теми «blue». Доступні: dark, wood, forest, midnight" in text
     assert 'brand → primary_color: колір має бути у форматі "#a06a3c"' in text
     assert "не схоже на номер телефону" in text and "лише нік без @" in text
     assert "потрібні два числа [широта, довгота]" in text and "не схоже на електронну адресу" in text

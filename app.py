@@ -179,7 +179,8 @@ def theme_overrides(brand):
 
 def favicon_svg(brand):
     letter = (re.sub(r"[^\w]", "", brand["name"]) or "•")[0].upper()
-    bg = brand["primary_color"] or {"dark": "#17181a", "wood": "#3a2a1d", "forest": "#16301f"}[brand["theme"]]
+    bg = brand["primary_color"] or {"dark": "#17181a", "wood": "#3a2a1d", "forest": "#16301f",
+                                      "midnight": "#0d1a2e"}[brand["theme"]]
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="{bg}"/>'
             f'<text x="32" y="44" font-family="Georgia,serif" font-size="36" text-anchor="middle" '
             f'fill="{_contrast(bg)}">{letter}</text></svg>')

@@ -23,6 +23,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Onest:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  {% if brand.fonts %}<link href="https://fonts.googleapis.com/css2?{{ brand.fonts }}&display=swap" rel="stylesheet">{% endif %}
   <link rel="stylesheet" href="{{ S }}css/style.css{{ V }}">
   {% if theme_css %}<link rel="stylesheet" href="{{ url_for('theme_css') }}{{ V }}">{% endif %}
   {% block head %}{% endblock %}

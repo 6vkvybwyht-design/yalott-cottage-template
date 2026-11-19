@@ -671,3 +671,120 @@ html[data-demo] img { -webkit-user-drag: none; user-select: none; }
 .demo-stolen { display: grid; place-items: center; min-height: 100vh; padding: 24px; text-align: center;
   background: #0f1011; color: #f2efe9; font: 500 18px/1.5 Onest, system-ui, sans-serif; }
 .demo-stolen strong { display: block; font-size: 26px; margin-bottom: 8px; color: #f3c26b; }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   midnight: «тиша в горах» — світлі слонові сторінки, темно-синій і золото.
+   Заголовки Prata, підписи й кнопки Tenor Sans (шрифти теми — site_config.THEME_FONTS),
+   банер по центру, прямі кути, тонкі золоті лінії, багато повітря.
+   Усі правила — лише під html[data-theme="midnight"]: інші теми не змінюються.
+   ══════════════════════════════════════════════════════════════════════════════ */
+html[data-theme="midnight"] {
+  --bg: #f6f2ea; --bg-alt: #ede6d8; --surface: #fdfbf7; --field: #ffffff; --line: #e1d8c5;
+  --text: #13213a; --text-2: #4c576b; --text-3: #7f8592;
+  --primary: #13213a; --on-primary: #f7f0e1;
+  --accent: #8a672a; --accent-on-dark: #dcbd7b; --warm: #a7843f;
+  --dark: #0d1a2e; --on-dark: #ffffff; --header-bg: rgba(13, 26, 46, .9);
+  --cta-on-dark: #d6b46c; --cta-on-dark-ink: #0d1a2e;
+  --busy: #e6dfd0; --busy-2: #efe9dd; --busy-ink: #978f7c; --past: #c8c0ad;
+  --map-filter: grayscale(.55) sepia(.12) contrast(1.03);
+  --primary-hover: color-mix(in srgb, var(--primary) 80%, var(--accent));
+  --accent-soft: color-mix(in srgb, var(--accent) 11%, var(--surface));
+  --font-head: "Prata", Georgia, "Times New Roman", serif; --head-weight: 400; --head-spacing: 0;
+  --font-ui: "Tenor Sans", var(--font);
+  --gold-line: linear-gradient(90deg, transparent, var(--accent-on-dark), transparent);
+  --radius: 4px; --radius-sm: 3px;
+  --shadow: 0 1px 2px rgba(13, 26, 46, .04), 0 10px 30px rgba(13, 26, 46, .06);
+  --shadow-lg: 0 26px 60px rgba(13, 26, 46, .18);
+  --header-h: 78px;
+}
+html[data-theme="midnight"] h1, html[data-theme="midnight"] h2 { line-height: 1.15; }
+html[data-theme="midnight"] h3 { font-family: var(--font-head); font-weight: 400; letter-spacing: 0; }
+html[data-theme="midnight"] .kicker { font-family: var(--font-ui); font-weight: 400; font-size: 12px; letter-spacing: .28em; gap: 14px; }
+html[data-theme="midnight"] .section-head .kicker::before { content: ""; width: 36px; height: 1px; background: currentColor; opacity: .7; }
+html[data-theme="midnight"] .btn { border-radius: 2px; font-family: var(--font-ui); font-weight: 400; font-size: 13px; letter-spacing: .16em; text-transform: uppercase; }
+html[data-theme="midnight"] .btn-sm { font-size: 12px; letter-spacing: .12em; }
+html[data-theme="midnight"] .nav { font-family: var(--font-ui); font-size: 13px; letter-spacing: .12em; text-transform: uppercase; }
+html[data-theme="midnight"] .nav-objects { border-radius: 2px; }
+html[data-theme="midnight"] .nav-objects a { border-radius: 2px; }
+html[data-theme="midnight"] .brand-logo { height: 52px; }
+@media (min-width: 900px) { html[data-theme="midnight"] .section { padding: 128px 0; } }
+html[data-theme="midnight"] .section-head { margin-bottom: 56px; }
+html[data-theme="midnight"] .section-head h2 { font-size: clamp(2rem, 4.2vw, 3.2rem); }
+
+/* банер: фото на весь екран, текст по центру, синя імла знизу */
+@media (min-width: 761px) {
+  html[data-theme="midnight"] .hero { min-height: min(94svh, 940px); align-items: flex-end; padding: 120px 0 96px; text-align: center; }
+  html[data-theme="midnight"] .hero-bg { object-position: 50% 40%; }
+  html[data-theme="midnight"] .hero-shade { background:
+    linear-gradient(0deg, rgba(10, 20, 36, .92) 0%, rgba(10, 20, 36, .62) 34%, rgba(10, 20, 36, .12) 66%, rgba(10, 20, 36, .32) 100%); }
+  html[data-theme="midnight"] .hero-text { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; }
+  html[data-theme="midnight"] .hero-lead { max-width: 600px; }
+  html[data-theme="midnight"] .hero .hero-actions { justify-content: center; }
+}
+html[data-theme="midnight"] .hero h1 { font-size: clamp(3rem, 8.4vw, 6.6rem); letter-spacing: .02em; margin-bottom: .12em; }
+html[data-theme="midnight"] .hero .kicker { color: #ecd59f; text-shadow: 0 1px 14px rgba(5, 12, 24, .65); }
+html[data-theme="midnight"] .hero .kicker::before, html[data-theme="midnight"] .hero .kicker::after { content: ""; width: 40px; height: 1px; background: currentColor; opacity: .6; }
+html[data-theme="midnight"] .hero .kicker .icon { display: none; }
+.hero-slogan { margin: 0 0 1.1em; font-family: var(--font-head); font-size: clamp(1.15rem, 2.2vw, 1.5rem); line-height: 1.4; color: var(--accent-on-dark); }
+.hero-slogan::before { content: "«"; } .hero-slogan::after { content: "»"; }
+html[data-theme="midnight"] .hero-slogan { position: relative; padding-bottom: 1.1em; }
+html[data-theme="midnight"] .hero-slogan + .hero-lead::before { content: ""; display: block; width: 120px; height: 1px; margin: -1.2em auto 1.4em; background: var(--gold-line); }
+html[data-theme="midnight"] .hero-lead { font-size: 1.08rem; line-height: 1.75; color: rgba(255, 255, 255, .84); }
+html[data-theme="midnight"] .hero-price { font-family: var(--font-ui); letter-spacing: .08em; font-size: .95rem; }
+html[data-theme="midnight"] .obj-hero-price strong { font-family: var(--font-head); font-weight: 400; color: var(--accent-on-dark); }
+html[data-theme="midnight"] .hero-price strong { font-family: var(--font-head); font-weight: 400; letter-spacing: .01em; color: var(--accent-on-dark); }
+@media (max-width: 760px) {
+  html[data-theme="midnight"] .hero-slogan + .hero-lead::before { margin-left: 0; }
+  html[data-theme="midnight"] .hero .kicker::after { display: none; }
+}
+
+/* переваги: без карток — колонки з тонкими лініями */
+html[data-theme="midnight"] .perks-band { padding: 72px 0 8px; }
+html[data-theme="midnight"] .perks { gap: 0; border-top: 1px solid var(--line); }
+html[data-theme="midnight"] .perk { background: transparent; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; padding: 26px 8px; gap: 18px; align-items: flex-start; }
+html[data-theme="midnight"] .perk strong { font-family: var(--font-head); font-weight: 400; font-size: 1.12rem; margin-bottom: 4px; }
+html[data-theme="midnight"] .t-icon { background: transparent; border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 50%; color: var(--accent); }
+@media (min-width: 640px) { html[data-theme="midnight"] .perk:nth-child(odd) { border-right: 1px solid var(--line); padding-right: 28px; } html[data-theme="midnight"] .perk:nth-child(even) { padding-left: 28px; } }
+@media (min-width: 1000px) {
+  html[data-theme="midnight"] .perk:nth-child(n) { border-right: 1px solid var(--line); padding: 30px 30px; }
+  html[data-theme="midnight"] .perk:nth-child(3n) { border-right: 0; }
+}
+@media (max-width: 639px) { html[data-theme="midnight"] .perk strong { font-size: 1rem; } html[data-theme="midnight"] .perk { padding: 18px 6px; } html[data-theme="midnight"] .perk:nth-child(odd) { padding-right: 12px; border-right: 1px solid var(--line); } html[data-theme="midnight"] .perk:nth-child(even) { padding-left: 12px; } }
+
+/* картки, ціни, форма — прямі кути, без тіней */
+html[data-theme="midnight"] .obj-card, html[data-theme="midnight"] .price-card, html[data-theme="midnight"] .card,
+html[data-theme="midnight"] .review, html[data-theme="midnight"] .faq-item, html[data-theme="midnight"] .rule,
+html[data-theme="midnight"] .contact-item, html[data-theme="midnight"] .directions, html[data-theme="midnight"] .desc-side { box-shadow: none; }
+html[data-theme="midnight"] .obj-card:hover { transform: none; box-shadow: var(--shadow); }
+html[data-theme="midnight"] .obj-card h3 { font-size: 1.9rem; }
+html[data-theme="midnight"] .obj-card--big { border: 0; }
+html[data-theme="midnight"] .obj-card--big .obj-body { position: relative; }
+html[data-theme="midnight"] .obj-card--big .obj-body::before { content: ""; position: absolute; left: 40px; right: 40px; top: 0; height: 1px; background: var(--gold-line); }
+html[data-theme="midnight"] .obj-card--big .obj-price strong { font-family: var(--font-head); font-weight: 400; color: var(--accent-on-dark); }
+html[data-theme="midnight"] .obj-facts li { border-radius: 2px; }
+html[data-theme="midnight"] .price-card { border-top: 2px solid var(--accent); }
+html[data-theme="midnight"] .price-row strong { font-family: var(--font-head); font-weight: 400; }
+html[data-theme="midnight"] .price-row--weekend strong { color: var(--accent); }
+html[data-theme="midnight"] .step-n { font-family: var(--font-ui); }
+html[data-theme="midnight"] .field input, html[data-theme="midnight"] .field select, html[data-theme="midnight"] .field textarea { border-radius: 2px; }
+html[data-theme="midnight"] .cal-day { border-radius: 2px; }
+html[data-theme="midnight"] .summary-total strong { font-family: var(--font-head); font-weight: 400; }
+html[data-theme="midnight"] .gallery { gap: 10px; }
+html[data-theme="midnight"] .gallery-item { border-radius: 2px; }
+html[data-theme="midnight"] .lightbox { background: rgba(9, 17, 31, .96); }
+
+/* відгуки: великі золоті лапки, текст спокійніший */
+html[data-theme="midnight"] .review { padding: 34px 30px 26px; background: var(--surface); }
+html[data-theme="midnight"] .review-quote { position: static; color: var(--accent); }
+html[data-theme="midnight"] .review-quote .icon { fill: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); }
+html[data-theme="midnight"] .review-stars { display: none; }
+html[data-theme="midnight"] .review-text { font-size: 1.02rem; line-height: 1.75; color: var(--text); }
+html[data-theme="midnight"] .review-author b { font-family: var(--font-ui); font-weight: 400; letter-spacing: .14em; text-transform: uppercase; font-size: 13px; }
+
+/* шапка й підвал */
+html[data-theme="midnight"] .site-footer { border-top: 0; position: relative; }
+html[data-theme="midnight"] .site-footer::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--gold-line); opacity: .7; }
+html[data-theme="midnight"] .footer-col h4 { font-family: var(--font-ui); font-weight: 400; letter-spacing: .24em; color: var(--accent-on-dark); }
+html[data-theme="midnight"] .footer-logo { height: 96px; }
+html[data-theme="midnight"] .mobile-cta { border-radius: 4px; }
+html[data-theme="midnight"] .mobile-cta strong { font-family: var(--font-head); font-weight: 400; }
