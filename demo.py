@@ -33,7 +33,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FONT_PATH = os.path.join(BASE_DIR, "assets", "watermark.ttf")
 WATERMARK_TEXT = "Демо · Yalott Studio"
 SUBTLE_TEXT = "Yalott Studio · демо"
-WATERMARK_VERSION = "5"            # змініть, якщо змінився вигляд водяного знака — кеш перегенерується
+WATERMARK_VERSION = "7"            # змініть, якщо змінився вигляд водяного знака — кеш перегенерується
 # Вигляд знака у фото (demo.watermark у конфігу):
 #   subtle — один маленький напівпрозорий підпис у правому нижньому куті (типово);
 #   grid   — діагональна сітка напису на все фото + плашка внизу й сітка поверх сторінки;
@@ -193,7 +193,7 @@ def _subtle_layer(w, h):
     layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
     left, top, right, bottom = d.textbbox((0, 0), SUBTLE_TEXT, font=font)
-    margin_x, margin_y = max(8, int(w * 0.035)), max(8, int(h * 0.04))
+    margin_x, margin_y = max(8, int(w * 0.07)), max(8, int(h * 0.05))
     x, y = w - margin_x - (right - left) - left, h - margin_y - (bottom - top) - top
     d.text((x + 1, y + 1), SUBTLE_TEXT, font=font, fill=(0, 0, 0, 70))            # м'яка тінь — читається на небі
     d.text((x, y), SUBTLE_TEXT, font=font, fill=(255, 255, 255, 128))

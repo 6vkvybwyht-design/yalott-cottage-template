@@ -448,3 +448,13 @@ def test_templates_load_photos_only_through_media_url():
         for arg in re.findall(r"url_for\(\s*'static'\s*,\s*filename\s*=\s*([^)]+)\)", text):
             assert arg.strip() in ("''", '""'), f"{os.path.relpath(path, ROOT)}: url_for('static', filename={arg}) — " \
                                                 "для фото використовуйте media_url()"
+
+
+def test_watermark_font_has_every_letter():
+    """У вкладеному шрифті (assets/watermark.ttf — підмножина) є всі літери обох написів, без «квадратиків»."""
+    from PIL import ImageFont
+    font = ImageFont.truetype(demo.FONT_PATH, 40)
+    missing = font.getmask("￿").getbbox()
+    for text in (demo.WATERMARK_TEXT, demo.SUBTLE_TEXT):
+        bad = [ch for ch in text if ch != " " and font.getmask(ch).getbbox() == missing]
+        assert not bad, f"{text}: немає літер {bad} — перегенеруйте шрифт (assets/README.md)"
