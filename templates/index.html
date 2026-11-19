@@ -15,7 +15,7 @@
 {% block content %}
 {# ---------- Банер: фото з media/hero/ або обкладинка головного об'єкта; без фото — фон теми ---------- #}
 {%- set hero_thumb = thumb_for(hero) -%}
-<section class="hero{% if not hero %} hero--plain{% endif %}">
+<section class="hero{% if not hero %} hero--plain{% elif brand.hero_style == "framed" %} hero--framed{% endif %}">
   {% if hero %}
   <img class="hero-bg" src="{{ media_url(hero) }}"
     {%- if hero_thumb %} srcset="{{ media_url(hero_thumb) }} 600w, {{ media_url(hero) }} 1600w" sizes="100vw"{% endif %}

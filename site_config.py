@@ -29,6 +29,9 @@ THEME_FONTS = {
     "midnight": "family=Prata&family=Tenor+Sans",
     "cabin": "family=Lora:ital,wght@0,500;0,600;1,500&family=Caveat:wght@600",
 }
+# brand.hero_style: вигляд банера головної. Порожньо — фото на весь банер;
+# framed — вертикальне фото 3:4 у рамці-будиночку праворуч, текст ліворуч (для фото, знятих на телефон вертикально).
+HERO_STYLES = ("", "framed")
 # brand.hero_focus: «30% 50%» — де на фото банера головне (по горизонталі, по вертикалі); діє на телефоні.
 HERO_FOCUS_RE = re.compile(r"^(100|[1-9]?[0-9])% (100|[1-9]?[0-9])%$")
 # Одиниця ціни послуги → (підпис, множник: n — ночі, g — гості).
@@ -241,6 +244,9 @@ def validate(raw, check_photos=True, static_dir=None, media="media"):
     c.text(brand, "name", "brand", required=True, max_len=60)
     c.text(brand, "tagline", "brand", max_len=140)
     c.text(brand, "slogan", "brand", max_len=120)
+    style = brand.get("hero_style")
+    if style not in (None, *HERO_STYLES):
+        c.err("brand → hero_style", "вигляд банера: порожньо (фото на весь банер) або framed (вертикальне фото в рамці)")
     focus = brand.get("hero_focus")
     if focus not in (None, "") and not (isinstance(focus, str) and HERO_FOCUS_RE.match(focus.strip())):
         c.err("brand → hero_focus", 'точка фокусу банера — два відсотки через пробіл: "30% 50%" '
@@ -570,7 +576,7 @@ class SiteConfig:
         name = str(b["name"]).strip()
         self.brand = {
             "name": name, "kind": g(b, "kind"), "tagline": g(b, "tagline"), "description": g(b, "description"),
-            "slogan": g(b, "slogan"), "hero_focus": g(b, "hero_focus"), "fonts": THEME_FONTS.get(b["theme"], ""),
+            "slogan": g(b, "slogan"), "hero_focus": g(b, "hero_focus"), "hero_style": g(b, "hero_style"), "fonts": THEME_FONTS.get(b["theme"], ""),
             "logo": g(b, "logo"), "logo_light": g(b, "logo_light") or g(b, "logo"), "favicon": g(b, "favicon"),
             "theme": b["theme"], "primary_color": g(b, "primary_color"), "accent_color": g(b, "accent_color"),
             "booking_prefix": g(b, "booking_prefix") or _prefix(name),

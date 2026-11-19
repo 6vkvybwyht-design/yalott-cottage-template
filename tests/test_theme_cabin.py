@@ -48,3 +48,13 @@ def test_hero_focus_validation():
 def cabin_config_tmp(**brand):
     import tempfile
     return cabin_config(tempfile.mkdtemp(), **brand)
+
+
+def test_hero_style_framed(make_site, tmp_path, ramshill, monkeypatch):
+    import gallery
+    monkeypatch.setattr(gallery, "first", lambda folder: "media/hero/hero.webp")   # банер з фото
+    assert '<section class="hero hero--framed">' in make_site(cabin_config(str(tmp_path), hero_style="framed")).html("/")
+    assert '<section class="hero">' in ramshill.html("/")      # без поля — звичайний банер
+    raw = yaml.safe_load(open(cabin_config_tmp(hero_style="arch"), encoding="utf-8"))
+    errors, _ = site_config.validate(raw, check_photos=False)
+    assert any("brand → hero_style" in e for e in errors)
