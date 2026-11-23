@@ -27,7 +27,55 @@ python manage.py check
 назва сайту латиницею (як у `sudo status`), `ДОМЕН` — домен клієнта.
 Сайт лежить у `/home/yalott/sites/НАЗВА`, працює від користувача `yalott`.
 
-### 1. Новий сайт
+### Однією командою: `launch-site` (рекомендовано)
+
+Спершу на GitHub: **Use this template** → репозиторій клієнта (напр. `6vkvybwyht-design/ramshill-site`),
+конфіг і фото закомічені (`python manage.py check` локально).
+
+`launch-site` робить кроки 1–5 нижче сам і **без питань**: гілку бере з GitHub, точку входу gunicorn
+(`wsgi:app`) і шлях бази — з `manage.py deploy-info`, демо-режим — з конфігу. Зупиняється лише один раз —
+показати deploy key, якщо сервер ще не має доступу до репозиторію.
+
+Спершу — перегляд (нічого не змінює, перелічує всі проблеми разом):
+
+```bash
+sudo launch-site НАЗВА 6vkvybwyht-design/РЕПОЗИТОРІЙ --demo --dry-run
+```
+
+Демо для клієнта (у конфігу `demo.enabled: true`, `demo.domain: "НАЗВА.<IP-з-дефісами>.sslip.io"`):
+
+```bash
+sudo launch-site НАЗВА 6vkvybwyht-design/РЕПОЗИТОРІЙ --demo
+```
+
+Робочий сайт (у конфігу `demo.enabled: false`); з `--domain` — якщо DNS домену вже вказує на сервер:
+
+```bash
+sudo launch-site НАЗВА 6vkvybwyht-design/РЕПОЗИТОРІЙ --domain ДОМЕН
+```
+
+Перенесення готового сайту (наприклад, з PythonAnywhere) — з його `.env` і базою, скопійованими на сервер:
+
+```bash
+sudo launch-site НАЗВА 6vkvybwyht-design/РЕПОЗИТОРІЙ --env /home/yalott/НАЗВА.env --db /home/yalott/НАЗВА.db
+```
+
+Що робить сам:
+
+- `.env`: з `--env`, наявного `.env` сайту або `.env.example`; `SECRET_KEY` і `ADMIN_PASSWORD` не перезаписує,
+  якщо вони вже є, інакше генерує (у терміналі не друкує); `SESSION_COOKIE_SECURE=1`, `BEHIND_PROXY=1`,
+  `DEMO_DATA` — 1 для демо, 0 для робочого; права 600. Файл `--env` після успіху видаляє (у ньому секрети);
+- база з `--db`: копія через SQLite backup, `integrity_check`, перевірка, що це база цього шаблону
+  (`deploy-info --db`), права 600 і тека 700; поточну базу сайту спершу кладе в бекап;
+- зупиняється **до** запуску, якщо `--demo` не збігається з `demo.enabled`, `demo.domain` — не тестова адреса
+  сайту, конфіг з помилками або гілки немає;
+- `--domain`: підключає домен і вмикає `secure-site --no-cloudflare` (демо працює на тестовій адресі — без них);
+- у кінці — автоматичні перевірки (HTTPS, CSP і заголовки, `noindex` у демо й без нього на робочому, права,
+  бот Telegram, `manage.py check`), посилання (демо — з `demo-link`) і чекліст для браузера.
+
+Повторний запуск безпечний — продовжує з місця, де зупинився. Нижче — те саме вручну, по кроках.
+
+### 1. Новий сайт (покроково)
 
 Спершу на GitHub: **Use this template** → репозиторій клієнта (напр. `6vkvybwyht-design/ramshill-site`).
 
@@ -134,13 +182,14 @@ sudo deploy НАЗВА
 ### Демо-версія для показу клієнту
 
 Демо — той самий сайт, але з `demo.enabled: true` у конфігу (див. README, розділ «Демо-версія для продажу»).
-Домен демо (`demo.domain`) — тестова адреса сайту, яку показав `new-site`: `НАЗВА.<IP-з-дефісами>.sslip.io`.
+Домен демо (`demo.domain`) — тестова адреса сайту: `НАЗВА.<IP-з-дефісами>.sslip.io`.
+`sudo launch-site НАЗВА РЕПО --demo` запускає демо й друкує посилання; нове посилання пізніше:
 
 ```bash
 sudo -u yalott bash -c 'cd /home/yalott/sites/НАЗВА && .venv/bin/python manage.py demo-link'
 ```
 
-Перевірка після запуску демо:
+Перевірка після запуску демо (`launch-site` робить її сам):
 
 ```bash
 curl -sI https://НАЗВА.<IP-з-дефісами>.sslip.io/ | grep -iE '^HTTP|x-robots-tag'
@@ -149,8 +198,14 @@ curl -sI https://НАЗВА.<IP-з-дефісами>.sslip.io/ | grep -iE '^HTTP
 Має бути `403` і `x-robots-tag: noindex, nofollow, noarchive, nosnippet, noimageindex`: без посилання сайт закритий.
 Відкрийте посилання з `demo-link` — має відкритися сайт із плашкою «Демо · Yalott Studio» і знаком «Yalott Studio · демо» в куті кожного фото (або сіткою, якщо `demo.watermark: grid`).
 
-Клієнт оплатив: `demo.enabled: false` у конфігу, закомітьте, `sudo deploy НАЗВА`, потім `sudo set-domain` і
-`sudo secure-site` — далі як для звичайного сайту.
+Клієнт оплатив: `demo.enabled: false` у конфігу, закомітьте, і коли DNS домену вказує на сервер:
+
+```bash
+sudo launch-site НАЗВА 6vkvybwyht-design/РЕПОЗИТОРІЙ --domain ДОМЕН
+```
+
+Демо-дані з бази (`DEMO_DATA` команда сама переводить у 0) — прибрати перед запуском для гостей:
+`sudo -u yalott bash -c 'cd /home/yalott/sites/НАЗВА && .venv/bin/python manage.py seed --clear-demo'`.
 
 ### Оновлення сайту
 

@@ -2,7 +2,7 @@
 
 **Мета v2:** новий сайт для котеджу чи садиби — за один вечір, якісний і **не схожий** на інші наші сайти.
 
-Стан на 19.11.2026. Цей файл — для продовження роботи в новій сесії: що зроблено, що лишилось, про що домовились.
+Стан на 23.11.2026. Цей файл — для продовження роботи в новій сесії: що зроблено, що лишилось, про що домовились.
 
 ---
 
@@ -47,6 +47,7 @@
 | [#3](https://github.com/6vkvybwyht-design/yalott-cottage-template/pull/3) | Безпека з коробки | Ліміт підбору пароля в базі, ProxyFix, CSRF усюди, сесія 12 год, суворий CSP без `'unsafe-inline'`, `SECRET_KEY` лише з `.env`, права 600/700, `security.fetch_public` для iCal, DEPLOY під yalott-server |
 | [#4](https://github.com/6vkvybwyht-design/yalott-cottage-template/pull/4) | Анкета в чаті | `manage.py anketa` (12 питань) і `manage.py from-chat` (чат → конфіг, «перевірити / бракує», готовий дозапит клієнту) |
 | [#5](https://github.com/6vkvybwyht-design/yalott-cottage-template/pull/5) | Демо-режим | `demo.enabled` у конфігу, `manage.py demo-link` / `demo-find`, водяний знак у фото, noindex, замок домену, позначка `yalott-demo:…` |
+| шаблон #8 + [yalott-server #6](https://github.com/6vkvybwyht-design/yalott-server/pull/6) | Деплой однією командою (пункт 5, зроблено раніше за 1–4) | `sudo launch-site НАЗВА РЕПО [--demo] [--branch] [--env] [--db] [--domain] [--dry-run]`: гілка й точка входу з GitHub і коду, `.env` без перезапису `SECRET_KEY`, база з `integrity_check` і правами 600, `secure-site`, перевірки й чекліст; у шаблоні — `manage.py deploy-info` |
 | [svi #10](https://github.com/6vkvybwyht-design/svi-cottages-demo/pull/10) | SVI: токен із кирилицею | `compare_digest` давав 500 на кириличному CSRF-токені та токені експорту iCal — виправлено байтовим порівнянням |
 
 ---
@@ -83,12 +84,9 @@
 - **alt-тексти** з анкети (назва котеджу + що на фото, з підписів чи назви файлу).
 - Вибір фото для банера й обкладинок.
 
-### 5. Деплой однією командою
-- Команда, що збирає з кроків нижче (розділ «Як зараз робиться демо») один сценарій на основі `new-site`,
-  `set-domain`, `deploy`, `secure-site --no-cloudflare` — **команди для запуску на сервері**, без запуску з боку Claude.
-- Після деплою — чекліст і автоматичні перевірки: HTTPS, заголовки безпеки (`curl -sI`), немає `noindex`
-  на робочому сайті, пароль адмінки не демо, Telegram відповідає, `manage.py check` зелений, `security-check`.
-- Режими «демо» і «робочий сайт після оплати».
+### 5. Деплой однією командою — зроблено (див. «Зроблено»)
+Лишилось на потім: `--domain` для демо на домені студії (коли з'явиться `demo.domain` студії), перевірка
+Lighthouse/скріншотів після запуску — разом із пунктом 1 (`manage.py qa`).
 
 ---
 
@@ -110,7 +108,7 @@
 
 ---
 
-## Як зараз робиться демо (до пункту 5 «Деплой однією командою»)
+## Як зараз робиться демо
 
 Локально:
 1. GitHub: **Use this template** → приватний репозиторій клієнта; `git clone`, `python3 -m venv .venv`, `pip install -r requirements.txt`.
@@ -122,11 +120,10 @@
 7. `python manage.py validate`; закомітити `config/site.yaml` і `static/media/`; `git push`.
 
 На сервері:
-8. `sudo new-site НАЗВА 6vkvybwyht-design/РЕПОЗИТОРІЙ` (домен — Enter, без домену); у `.env`: `DEMO_DATA=1`,
-   `ADMIN_PASSWORD`, за бажанням `DEMO_PASSWORD`.
-9. `sudo -u yalott bash -c 'cd /home/yalott/sites/НАЗВА && .venv/bin/python manage.py demo-link'` → посилання клієнту.
-10. Перевірка: `curl -sI https://НАЗВА.<IP>.sslip.io/` → `403` і `x-robots-tag: noindex…`; посилання відкриває сайт
-    з водяними знаками.
+8. `sudo launch-site НАЗВА 6vkvybwyht-design/РЕПОЗИТОРІЙ --demo --dry-run` — перегляд, нічого не змінює.
+9. `sudo launch-site НАЗВА 6vkvybwyht-design/РЕПОЗИТОРІЙ --demo` — deploy key (один раз), запуск, перевірки
+   й посилання для клієнта. За бажанням пароль демо: `DEMO_PASSWORD` у `.env` і `sudo deploy НАЗВА`.
 
-Після оплати: `demo.enabled: false` → `sudo deploy НАЗВА` → `sudo set-domain НАЗВА ДОМЕН` →
-`sudo secure-site НАЗВА --no-cloudflare` → `sudo security-check`.
+Після оплати: `demo.enabled: false` у конфігу, `git push`, DNS домену → IP сервера, і
+`sudo launch-site НАЗВА 6vkvybwyht-design/РЕПОЗИТОРІЙ --domain ДОМЕН` (домен + `secure-site --no-cloudflare` + перевірки);
+потім `seed --clear-demo` (команду покаже launch-site) і `sudo security-check`.
