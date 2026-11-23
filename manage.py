@@ -11,6 +11,7 @@
     python manage.py demo-link      посилання на демо-версію з терміном дії (demo.enabled у конфігу)
     python manage.py demo-find ФАЙЛ чи є в збереженій сторінці / тексті позначка нашого демо
     python manage.py set-password   змінити пароль адмінки
+    python manage.py deploy-info    опис сайту для серверного скрипта launch-site (JSON, без секретів)
 
 Інший конфіг: додайте  --config config/examples/ramshill.yaml  (або змінну SITE_CONFIG).
 """
@@ -859,6 +860,58 @@ def cmd_from_chat(args):
     return 1 if errors else 0
 
 
+# ---------- deploy-info (для sudo launch-site на сервері) ----------
+
+def cmd_deploy_info(args):
+    """Опис сайту у JSON для серверного скрипта launch-site (yalott-server): точка входу, конфіг, база, демо.
+
+    Нічого не змінює й не друкує секретів (лише чи задано DEMO_PASSWORD). Код виходу — 0, якщо JSON надруковано:
+    помилки конфігу теж ідуть у JSON (config_errors), рішення приймає launch-site.
+    --db ФАЙЛ — ще й перевірити базу, яку переносять на сервер (integrity_check і сумісність із шаблоном).
+    """
+    path = _path(args)
+    info = {
+        "format": 1,
+        "kind": "yalott-cottage-template",
+        # gunicorn імпортує wsgi.py (у ньому лише `from app import app`); app.py — запасний варіант
+        "wsgi": "wsgi:app" if os.path.exists(os.path.join(BASE_DIR, "wsgi.py")) else "app:app",
+        "config": _rel(path),
+        "config_errors": [],
+        "site_name": "",
+        "demo": {"enabled": False, "domain": "", "password": False},
+        "placeholders": False,
+        "review_marks": 0,
+    }
+    try:
+        raw = site_config.read_yaml(path)
+        errors, _ = site_config.validate(raw, check_photos=False)
+        if errors:
+            info["config_errors"] = list(errors)
+        else:
+            cfg = site_config.SiteConfig(raw, path)
+            info["site_name"] = cfg.brand["full_name"]
+            info["demo"]["enabled"] = bool(cfg.demo["enabled"])
+            info["demo"]["domain"] = cfg.demo["domain"] or ""
+        text = open(path, encoding="utf-8").read()
+        info["placeholders"] = "ЗАМІНИТИ" in text or "000 00 00" in text or "0000000" in text
+        info["review_marks"] = text.count("ПЕРЕВІРИТИ:")
+    except site_config.ConfigError as exc:
+        info["config_errors"] = list(exc.errors)
+    except OSError as exc:
+        info["config_errors"] = [f"не вдалося прочитати {_rel(path)}: {exc.strerror}"]
+    _load_env()     # .env: DATABASE_PATH, INSTANCE_PATH, DEMO_PASSWORD
+    instance = os.environ.get("INSTANCE_PATH") or os.path.join(BASE_DIR, "instance")
+    key = os.path.splitext(os.path.basename(path))[0]          # так само, як SiteConfig.key
+    database = os.environ.get("DATABASE_PATH") or os.path.join(instance, f"{key}.db")
+    info["database"] = database if os.path.isabs(database) else os.path.join(BASE_DIR, database)
+    info["demo"]["password"] = bool(os.environ.get("DEMO_PASSWORD", "").strip())
+    if args.db:
+        import database as db_
+        info["db_file"] = db_.inspect_file(args.db)
+    print(json.dumps(info, ensure_ascii=False, indent=2))
+    return 0
+
+
 # ---------- запуск ----------
 
 def main(argv=None):
@@ -901,6 +954,8 @@ def main(argv=None):
     p.add_argument("--no-warm", action="store_true", help="не готувати фото з водяним знаком заздалегідь")
     p = command("demo-find", cmd_demo_find, "знайти позначку нашого демо в чужій сторінці, тексті чи фото")
     p.add_argument("file", nargs="?", help="збережена сторінка (.html), текст або фото")
+    p = command("deploy-info", cmd_deploy_info, "опис сайту для серверного скрипта launch-site (JSON, без секретів)")
+    p.add_argument("--db", metavar="ФАЙЛ", help="ще й перевірити файл бази, який переносять на сервер")
     p = command("set-password", cmd_set_password, "змінити пароль адмінки")
     p.add_argument("username", nargs="?", default="admin")
 

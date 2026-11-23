@@ -9,6 +9,7 @@
 import json
 import logging
 import os
+import pathlib
 import secrets
 import sqlite3
 from datetime import date, timedelta
@@ -84,6 +85,49 @@ def restrict_permissions(path):
             pass
 
 
+def _old_incompatible(conn):
+    """База старої версії сайту (до ключів об'єктів), з якою шаблон працювати не може."""
+    tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+    return "objects" in tables and "key" not in _columns(conn, "objects")
+
+
+def inspect_file(path):
+    """Перевіряє файл бази, який переносять на сервер (manage.py deploy-info --db). Нічого не змінює.
+
+    Повертає {"ok", "problem", "integrity", "tables", "bookings", "admins"}; problem — зрозуміла причина відмови.
+    """
+    result = {"ok": False, "problem": "", "integrity": "", "tables": [], "bookings": None, "admins": None}
+    if not os.path.isfile(path):
+        result["problem"] = f"файлу {path} немає"
+        return result
+    try:
+        conn = sqlite3.connect(f"{pathlib.Path(path).absolute().as_uri()}?mode=ro", uri=True)
+    except sqlite3.Error as exc:
+        result["problem"] = f"не вдалося відкрити як SQLite: {exc}"
+        return result
+    conn.row_factory = sqlite3.Row
+    try:
+        result["integrity"] = conn.execute("PRAGMA integrity_check").fetchone()[0]
+        tables = sorted(r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'"))
+        result["tables"] = tables
+        if result["integrity"] != "ok":
+            result["problem"] = f"база пошкоджена (integrity_check: {result['integrity'][:200]})"
+        elif "objects" not in tables or "bookings" not in tables:
+            result["problem"] = "це не база сайту котеджу: немає таблиць objects і bookings"
+        elif _old_incompatible(conn):
+            result["problem"] = "база створена старою версією сайту (без ключів об'єктів) і несумісна із шаблоном"
+        else:
+            result["bookings"] = conn.execute("SELECT COUNT(*) FROM bookings").fetchone()[0]
+            if "admin_users" in tables:
+                result["admins"] = conn.execute("SELECT COUNT(*) FROM admin_users").fetchone()[0]
+            result["ok"] = True
+    except sqlite3.DatabaseError as exc:
+        result["problem"] = f"не схоже на базу SQLite або файл пошкоджено: {exc}"
+    finally:
+        conn.close()
+    return result
+
+
 def init_db(path, cfg, with_demo=False, today=None):
     """Створює базу й таблиці, якщо їх ще немає, і доливає з конфігу те, чого в базі бракує."""
     folder = os.path.dirname(os.path.abspath(path))
@@ -91,8 +135,7 @@ def init_db(path, cfg, with_demo=False, today=None):
     conn = connect(path)
     restrict_permissions(path)
     try:
-        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
-        if "objects" in tables and "key" not in _columns(conn, "objects"):
+        if _old_incompatible(conn):
             raise RuntimeError(
                 f"База {path} створена старою версією сайту й несумісна із шаблоном. "
                 f"Вкажіть інший файл у DATABASE_PATH або перейменуйте стару базу.")

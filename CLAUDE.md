@@ -79,6 +79,7 @@ python manage.py validate        # перевірити конфіг
 python manage.py check           # готовність до деплою
 python manage.py demo-link       # посилання на демо з терміном дії (на сервері)
 python manage.py demo-find ФАЙЛ  # чи це копія нашого демо
+python manage.py deploy-info     # JSON для sudo launch-site (yalott-server); поля — контракт, не перейменовувати
 SITE_CONFIG=config/examples/ramshill.yaml DEMO_DATA=1 python app.py   # приклад
 ```
 
