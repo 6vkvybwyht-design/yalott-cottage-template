@@ -35,7 +35,8 @@
   <div class="hero-shade" aria-hidden="true"></div>
   <div class="container hero-inner">
     <div class="hero-text">
-      {% if brand.kind or contacts.region %}<p class="hero-eyebrow">{{ brand.kind or contacts.region }}{% if brand.kind and contacts.region %} · {{ contacts.region }}{% endif %}</p>{% endif %}
+      {#- один короткий рядок: тип закладу (у ньому зазвичай уже є де — «Будиночок у Карпатах»), інакше регіон -#}
+      {% if brand.kind or contacts.region %}<p class="hero-eyebrow">{{ brand.kind or contacts.region }}</p>{% endif %}
       <h1>{{ brand.name }}</h1>
       <p class="hero-lead">{{ brand.slogan or brand.tagline or brand.description }}</p>
       <div class="hero-offer">
