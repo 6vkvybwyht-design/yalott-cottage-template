@@ -1,0 +1,102 @@
+<!doctype html><html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Теми дизайн-системи — порівняння</title><style>
+body{margin:0;font:15px/1.5 system-ui,sans-serif;background:#f4f3f0;color:#1b1b1a} main{max-width:1400px;margin:0 auto;padding:24px 16px}
+.theme{background:#fff;border-radius:14px;padding:20px;margin:0 0 24px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+header{display:flex;flex-wrap:wrap;gap:16px 32px;align-items:center;justify-content:space-between} h2{margin:0;font-size:22px}
+header p{margin:2px 0;color:#555} .fonts{font-size:13px} .bar{display:flex;width:220px;height:28px;border-radius:6px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(0,0,0,.1)}
+.lh{display:flex;gap:14px} .lh span{display:grid;text-align:center;font-size:12px;color:#555} .lh b{font-size:22px;color:#1b1b1a}
+.metrics{font-size:13px;color:#555} .issue{color:#a4371b} .okline{color:#2b6b3f}
+.pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,3.4fr);gap:16px;align-items:start} figure{margin:0} img{width:100%;border-radius:8px;border:1px solid #e5e3de}
+figcaption{font-size:12px;color:#666;margin-top:4px} details{margin-top:12px} summary{cursor:pointer;color:#444}
+@media (max-width:700px){.pair{grid-template-columns:1fr}}
+</style></head><body><main><h1>Теми дизайн-системи — порівняння</h1>
+<p>Порівняння тем. Lighthouse — мобільний профіль (поріг продуктивності 85). Перший екран і повна сторінка на 375 і 1440 px.</p>
+<section class="theme" id="pine">
+  <header><div><h2>Смерека <code>pine</code></h2><p>глибокий зелений, беж і мідь — ліс, дерево, вогонь у каміні</p>
+  <p class="fonts">Cormorant Garamond + Manrope</p></div>
+  <div class="bar"><span class="sw" style="flex:6;background:#1d3127" title="c60: #1d3127"></span><span class="sw" style="flex:3;background:#efe5d3" title="c30: #efe5d3"></span><span class="sw" style="flex:1;background:#d08a56" title="c10: #d08a56"></span></div>
+  <div class="lh"><span><b>89</b>продуктивність</span><span><b>100</b>доступність</span><span><b>100</b>практики</span><span><b>100</b>SEO</span></div></header>
+  <p class="metrics">FIRST 0.9 s · LARGEST 3.8 s · TOTAL 40 ms · CUMULATIVE 0.023</p>
+  <p class="okline">✓ без помилок консолі (CSP) і горизонтальної прокрутки</p>
+  <div class="pair"><figure class="m"><img src="pine-375.jpg" alt="" loading="lazy"><figcaption>375 px — перший екран</figcaption></figure>
+  <figure class="d"><img src="pine-1440.jpg" alt="" loading="lazy"><figcaption>1440 px — перший екран</figcaption></figure></div>
+  <details><summary>Повна сторінка</summary><div class="pair"><figure class="m"><img src="full/pine-375-full.jpg" alt="" loading="lazy"></figure>
+  <figure class="d"><img src="full/pine-1440-full.jpg" alt="" loading="lazy"></figure></div></details>
+</section><section class="theme" id="graphite">
+  <header><div><h2>Графіт <code>graphite</code></h2><p>графіт, молочний і золото — стримано, по-міському дорого</p>
+  <p class="fonts">Playfair Display + Inter</p></div>
+  <div class="bar"><span class="sw" style="flex:6;background:#1f2226" title="c60: #1f2226"></span><span class="sw" style="flex:3;background:#f3eee5" title="c30: #f3eee5"></span><span class="sw" style="flex:1;background:#d4ab55" title="c10: #d4ab55"></span></div>
+  <div class="lh"><span><b>88</b>продуктивність</span><span><b>100</b>доступність</span><span><b>100</b>практики</span><span><b>100</b>SEO</span></div></header>
+  <p class="metrics">FIRST 1.2 s · LARGEST 3.8 s · TOTAL 90 ms · CUMULATIVE 0.013</p>
+  <p class="okline">✓ без помилок консолі (CSP) і горизонтальної прокрутки</p>
+  <div class="pair"><figure class="m"><img src="graphite-375.jpg" alt="" loading="lazy"><figcaption>375 px — перший екран</figcaption></figure>
+  <figure class="d"><img src="graphite-1440.jpg" alt="" loading="lazy"><figcaption>1440 px — перший екран</figcaption></figure></div>
+  <details><summary>Повна сторінка</summary><div class="pair"><figure class="m"><img src="full/graphite-375-full.jpg" alt="" loading="lazy"></figure>
+  <figure class="d"><img src="full/graphite-1440-full.jpg" alt="" loading="lazy"></figure></div></details>
+</section><section class="theme" id="terracotta">
+  <header><div><h2>Теракота <code>terracotta</code></h2><p>білий, камінь і теракота — світло, глина, південне сонце</p>
+  <p class="fonts">Lora + Golos Text</p></div>
+  <div class="bar"><span class="sw" style="flex:6;background:#fbf9f5" title="c60: #fbf9f5"></span><span class="sw" style="flex:3;background:#e9e3d9" title="c30: #e9e3d9"></span><span class="sw" style="flex:1;background:#a9482a" title="c10: #a9482a"></span></div>
+  <div class="lh"><span><b>90</b>продуктивність</span><span><b>100</b>доступність</span><span><b>100</b>практики</span><span><b>100</b>SEO</span></div></header>
+  <p class="metrics">FIRST 0.9 s · LARGEST 3.6 s · TOTAL 0 ms · CUMULATIVE 0.013</p>
+  <p class="okline">✓ без помилок консолі (CSP) і горизонтальної прокрутки</p>
+  <div class="pair"><figure class="m"><img src="terracotta-375.jpg" alt="" loading="lazy"><figcaption>375 px — перший екран</figcaption></figure>
+  <figure class="d"><img src="terracotta-1440.jpg" alt="" loading="lazy"><figcaption>1440 px — перший екран</figcaption></figure></div>
+  <details><summary>Повна сторінка</summary><div class="pair"><figure class="m"><img src="full/terracotta-375-full.jpg" alt="" loading="lazy"></figure>
+  <figure class="d"><img src="full/terracotta-1440-full.jpg" alt="" loading="lazy"></figure></div></details>
+</section><section class="theme" id="night">
+  <header><div><h2>Ніч <code>night</code></h2><p>нічне небо, пісок і лайм — сучасно, сміливо, для глемпінгу</p>
+  <p class="fonts">Unbounded + Onest</p></div>
+  <div class="bar"><span class="sw" style="flex:6;background:#0f141b" title="c60: #0f141b"></span><span class="sw" style="flex:3;background:#e6d8bf" title="c30: #e6d8bf"></span><span class="sw" style="flex:1;background:#c6e15b" title="c10: #c6e15b"></span></div>
+  <div class="lh"><span><b>90</b>продуктивність</span><span><b>100</b>доступність</span><span><b>100</b>практики</span><span><b>100</b>SEO</span></div></header>
+  <p class="metrics">FIRST 0.9 s · LARGEST 3.6 s · TOTAL 40 ms · CUMULATIVE 0.011</p>
+  <p class="okline">✓ без помилок консолі (CSP) і горизонтальної прокрутки</p>
+  <div class="pair"><figure class="m"><img src="night-375.jpg" alt="" loading="lazy"><figcaption>375 px — перший екран</figcaption></figure>
+  <figure class="d"><img src="night-1440.jpg" alt="" loading="lazy"><figcaption>1440 px — перший екран</figcaption></figure></div>
+  <details><summary>Повна сторінка</summary><div class="pair"><figure class="m"><img src="full/night-375-full.jpg" alt="" loading="lazy"></figure>
+  <figure class="d"><img src="full/night-1440-full.jpg" alt="" loading="lazy"></figure></div></details>
+</section><section class="theme" id="linen">
+  <header><div><h2>Льон <code>linen</code></h2><p>льон, сланцево-зелений і бронза — тепла класика садиби</p>
+  <p class="fonts">Prata + Montserrat</p></div>
+  <div class="bar"><span class="sw" style="flex:6;background:#f5f0e7" title="c60: #f5f0e7"></span><span class="sw" style="flex:3;background:#2e3c36" title="c30: #2e3c36"></span><span class="sw" style="flex:1;background:#965c18" title="c10: #965c18"></span></div>
+  <div class="lh"><span><b>89</b>продуктивність</span><span><b>100</b>доступність</span><span><b>100</b>практики</span><span><b>100</b>SEO</span></div></header>
+  <p class="metrics">FIRST 0.9 s · LARGEST 3.8 s · TOTAL 40 ms · CUMULATIVE 0</p>
+  <p class="okline">✓ без помилок консолі (CSP) і горизонтальної прокрутки</p>
+  <div class="pair"><figure class="m"><img src="linen-375.jpg" alt="" loading="lazy"><figcaption>375 px — перший екран</figcaption></figure>
+  <figure class="d"><img src="linen-1440.jpg" alt="" loading="lazy"><figcaption>1440 px — перший екран</figcaption></figure></div>
+  <details><summary>Повна сторінка</summary><div class="pair"><figure class="m"><img src="full/linen-375-full.jpg" alt="" loading="lazy"></figure>
+  <figure class="d"><img src="full/linen-1440-full.jpg" alt="" loading="lazy"></figure></div></details>
+</section><section class="theme" id="lake">
+  <header><div><h2>Озеро <code>lake</code></h2><p>туман над водою, глибока бірюза й корал — свіжо й спокійно</p>
+  <p class="fonts">Literata + Manrope</p></div>
+  <div class="bar"><span class="sw" style="flex:6;background:#eef2f0" title="c60: #eef2f0"></span><span class="sw" style="flex:3;background:#1f3b47" title="c30: #1f3b47"></span><span class="sw" style="flex:1;background:#b04830" title="c10: #b04830"></span></div>
+  <div class="lh"><span><b>90</b>продуктивність</span><span><b>100</b>доступність</span><span><b>100</b>практики</span><span><b>100</b>SEO</span></div></header>
+  <p class="metrics">FIRST 0.9 s · LARGEST 3.7 s · TOTAL 40 ms · CUMULATIVE 0.023</p>
+  <p class="okline">✓ без помилок консолі (CSP) і горизонтальної прокрутки</p>
+  <div class="pair"><figure class="m"><img src="lake-375.jpg" alt="" loading="lazy"><figcaption>375 px — перший екран</figcaption></figure>
+  <figure class="d"><img src="lake-1440.jpg" alt="" loading="lazy"><figcaption>1440 px — перший екран</figcaption></figure></div>
+  <details><summary>Повна сторінка</summary><div class="pair"><figure class="m"><img src="full/lake-375-full.jpg" alt="" loading="lazy"></figure>
+  <figure class="d"><img src="full/lake-1440-full.jpg" alt="" loading="lazy"></figure></div></details>
+</section><section class="theme" id="birch">
+  <header><div><h2>Береза <code>birch</code></h2><p>білий, шавлія й лісовий зелений — чисто, скандинавськи</p>
+  <p class="fonts">Forum + Commissioner</p></div>
+  <div class="bar"><span class="sw" style="flex:6;background:#fafaf7" title="c60: #fafaf7"></span><span class="sw" style="flex:3;background:#dfe4dc" title="c30: #dfe4dc"></span><span class="sw" style="flex:1;background:#2c5e4b" title="c10: #2c5e4b"></span></div>
+  <div class="lh"><span><b>89</b>продуктивність</span><span><b>100</b>доступність</span><span><b>100</b>практики</span><span><b>100</b>SEO</span></div></header>
+  <p class="metrics">FIRST 0.9 s · LARGEST 3.8 s · TOTAL 40 ms · CUMULATIVE 0.013</p>
+  <p class="okline">✓ без помилок консолі (CSP) і горизонтальної прокрутки</p>
+  <div class="pair"><figure class="m"><img src="birch-375.jpg" alt="" loading="lazy"><figcaption>375 px — перший екран</figcaption></figure>
+  <figure class="d"><img src="birch-1440.jpg" alt="" loading="lazy"><figcaption>1440 px — перший екран</figcaption></figure></div>
+  <details><summary>Повна сторінка</summary><div class="pair"><figure class="m"><img src="full/birch-375-full.jpg" alt="" loading="lazy"></figure>
+  <figure class="d"><img src="full/birch-1440-full.jpg" alt="" loading="lazy"></figure></div></details>
+</section><section class="theme" id="ember">
+  <header><div><h2>Жар <code>ember</code></h2><p>вугілля, темне дерево й жар — баня, чан, вечір біля вогню</p>
+  <p class="fonts">Yeseva One + PT Sans</p></div>
+  <div class="bar"><span class="sw" style="flex:6;background:#171310" title="c60: #171310"></span><span class="sw" style="flex:3;background:#2a221d" title="c30: #2a221d"></span><span class="sw" style="flex:1;background:#e8783f" title="c10: #e8783f"></span></div>
+  <div class="lh"><span><b>87</b>продуктивність</span><span><b>100</b>доступність</span><span><b>100</b>практики</span><span><b>100</b>SEO</span></div></header>
+  <p class="metrics">FIRST 0.9 s · LARGEST 4.1 s · TOTAL 20 ms · CUMULATIVE 0.023</p>
+  <p class="okline">✓ без помилок консолі (CSP) і горизонтальної прокрутки</p>
+  <div class="pair"><figure class="m"><img src="ember-375.jpg" alt="" loading="lazy"><figcaption>375 px — перший екран</figcaption></figure>
+  <figure class="d"><img src="ember-1440.jpg" alt="" loading="lazy"><figcaption>1440 px — перший екран</figcaption></figure></div>
+  <details><summary>Повна сторінка</summary><div class="pair"><figure class="m"><img src="full/ember-375-full.jpg" alt="" loading="lazy"></figure>
+  <figure class="d"><img src="full/ember-1440-full.jpg" alt="" loading="lazy"></figure></div></details>
+</section></main></body></html>

@@ -1,0 +1,250 @@
+[
+  {
+    "name": "pine",
+    "theme": "pine",
+    "label": "Смерека",
+    "mood": "глибокий зелений, беж і мідь — ліс, дерево, вогонь у каміні",
+    "shots": {
+      "375": {
+        "errors": [],
+        "overflow": 0
+      },
+      "1440": {
+        "errors": [],
+        "overflow": 0
+      }
+    },
+    "lighthouse": {
+      "performance": 89,
+      "accessibility": 100,
+      "best-practices": 100,
+      "seo": 100,
+      "largest-contentful-paint": "3.8 s",
+      "cumulative-layout-shift": "0.023",
+      "total-blocking-time": "40 ms",
+      "first-contentful-paint": "0.9 s",
+      "runs": [
+        89,
+        89,
+        93
+      ]
+    }
+  },
+  {
+    "name": "graphite",
+    "theme": "graphite",
+    "label": "Графіт",
+    "mood": "графіт, молочний і золото — стримано, по-міському дорого",
+    "shots": {
+      "375": {
+        "errors": [],
+        "overflow": 0
+      },
+      "1440": {
+        "errors": [],
+        "overflow": 0
+      }
+    },
+    "lighthouse": {
+      "performance": 88,
+      "accessibility": 100,
+      "best-practices": 100,
+      "seo": 100,
+      "largest-contentful-paint": "3.8 s",
+      "cumulative-layout-shift": "0.013",
+      "total-blocking-time": "90 ms",
+      "first-contentful-paint": "1.2 s",
+      "runs": [
+        88,
+        88,
+        88
+      ]
+    }
+  },
+  {
+    "name": "terracotta",
+    "theme": "terracotta",
+    "label": "Теракота",
+    "mood": "білий, камінь і теракота — світло, глина, південне сонце",
+    "shots": {
+      "375": {
+        "errors": [],
+        "overflow": 0
+      },
+      "1440": {
+        "errors": [],
+        "overflow": 0
+      }
+    },
+    "lighthouse": {
+      "performance": 90,
+      "accessibility": 100,
+      "best-practices": 100,
+      "seo": 100,
+      "largest-contentful-paint": "3.6 s",
+      "cumulative-layout-shift": "0.013",
+      "total-blocking-time": "0 ms",
+      "first-contentful-paint": "0.9 s",
+      "runs": [
+        90,
+        90,
+        90
+      ]
+    }
+  },
+  {
+    "name": "night",
+    "theme": "night",
+    "label": "Ніч",
+    "mood": "нічне небо, пісок і лайм — сучасно, сміливо, для глемпінгу",
+    "shots": {
+      "375": {
+        "errors": [],
+        "overflow": 0
+      },
+      "1440": {
+        "errors": [],
+        "overflow": 0
+      }
+    },
+    "lighthouse": {
+      "performance": 90,
+      "accessibility": 100,
+      "best-practices": 100,
+      "seo": 100,
+      "largest-contentful-paint": "3.6 s",
+      "cumulative-layout-shift": "0.011",
+      "total-blocking-time": "40 ms",
+      "first-contentful-paint": "0.9 s",
+      "runs": [
+        89,
+        90,
+        97
+      ]
+    }
+  },
+  {
+    "name": "linen",
+    "theme": "linen",
+    "label": "Льон",
+    "mood": "льон, сланцево-зелений і бронза — тепла класика садиби",
+    "shots": {
+      "375": {
+        "errors": [],
+        "overflow": 0
+      },
+      "1440": {
+        "errors": [],
+        "overflow": 0
+      }
+    },
+    "lighthouse": {
+      "performance": 89,
+      "accessibility": 100,
+      "best-practices": 100,
+      "seo": 100,
+      "largest-contentful-paint": "3.8 s",
+      "cumulative-layout-shift": "0",
+      "total-blocking-time": "40 ms",
+      "first-contentful-paint": "0.9 s",
+      "runs": [
+        88,
+        89,
+        89
+      ]
+    }
+  },
+  {
+    "name": "lake",
+    "theme": "lake",
+    "label": "Озеро",
+    "mood": "туман над водою, глибока бірюза й корал — свіжо й спокійно",
+    "shots": {
+      "375": {
+        "errors": [],
+        "overflow": 0
+      },
+      "1440": {
+        "errors": [],
+        "overflow": 0
+      }
+    },
+    "lighthouse": {
+      "performance": 90,
+      "accessibility": 100,
+      "best-practices": 100,
+      "seo": 100,
+      "largest-contentful-paint": "3.7 s",
+      "cumulative-layout-shift": "0.023",
+      "total-blocking-time": "40 ms",
+      "first-contentful-paint": "0.9 s",
+      "runs": [
+        89,
+        90,
+        92
+      ]
+    }
+  },
+  {
+    "name": "birch",
+    "theme": "birch",
+    "label": "Береза",
+    "mood": "білий, шавлія й лісовий зелений — чисто, скандинавськи",
+    "shots": {
+      "375": {
+        "errors": [],
+        "overflow": 0
+      },
+      "1440": {
+        "errors": [],
+        "overflow": 0
+      }
+    },
+    "lighthouse": {
+      "performance": 89,
+      "accessibility": 100,
+      "best-practices": 100,
+      "seo": 100,
+      "largest-contentful-paint": "3.8 s",
+      "cumulative-layout-shift": "0.013",
+      "total-blocking-time": "40 ms",
+      "first-contentful-paint": "0.9 s",
+      "runs": [
+        88,
+        89,
+        89
+      ]
+    }
+  },
+  {
+    "name": "ember",
+    "theme": "ember",
+    "label": "Жар",
+    "mood": "вугілля, темне дерево й жар — баня, чан, вечір біля вогню",
+    "shots": {
+      "375": {
+        "errors": [],
+        "overflow": 0
+      },
+      "1440": {
+        "errors": [],
+        "overflow": 0
+      }
+    },
+    "lighthouse": {
+      "performance": 87,
+      "accessibility": 100,
+      "best-practices": 100,
+      "seo": 100,
+      "largest-contentful-paint": "4.1 s",
+      "cumulative-layout-shift": "0.023",
+      "total-blocking-time": "20 ms",
+      "first-contentful-paint": "0.9 s",
+      "runs": [
+        86,
+        87,
+        87
+      ]
+    }
+  }
+]
