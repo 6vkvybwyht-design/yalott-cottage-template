@@ -188,7 +188,7 @@
 
   function renderMonth(y, m) {
     var id = objectId();
-    var html = '<div class="cal-month"><h4>' + MONTHS[m] + " " + y + '</h4><div class="cal-grid">';
+    var html = '<div class="cal-month"><h3 class="cal-mt">' + MONTHS[m] + " " + y + '</h3><div class="cal-grid">';
     WD.forEach(function (w) { html += '<div class="cal-wd">' + w + "</div>"; });
     var offset = (new Date(Date.UTC(y, m, 1)).getUTCDay() + 6) % 7;
     var days = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();

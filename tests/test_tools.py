@@ -129,11 +129,11 @@ def test_validate_command(capsys, tmp_path):
 
     bad = tmp_path / "bad.yaml"
     text = open(CONFIGS["blackhouse"], encoding="utf-8").read()
-    bad.write_text(text.replace("start: 2026-12-28", "start: 2026-02-30").replace("theme: dark", "theme: night"),
+    bad.write_text(text.replace("start: 2026-12-28", "start: 2026-02-30").replace("theme: dark", "theme: neon"),
                    encoding="utf-8")
     assert run("validate", "--config", str(bad)) == 1
     out = capsys.readouterr().out
-    assert "✗ brand → theme: немає теми «night»" in out
+    assert "✗ brand → theme: немає теми «neon»" in out
     assert "✗ seasons №1 «Новорічні свята» → start: неправильна дата «2026-02-30»" in out
     assert "Помилок: 2" in out
 
@@ -225,7 +225,7 @@ def test_new_client_wizard(tmp_path, monkeypatch, capsys):
     assert "Не схоже на номер" in text and "Конфіг збережено" in text and "python manage.py photos" in text
 
     cfg = site_config.load(str(out))                              # згенерований файл одразу правильний
-    assert cfg.brand["full_name"] == "Котеджі Тиха Хата" and cfg.brand["theme"] == "dark"
+    assert cfg.brand["full_name"] == "Котеджі Тиха Хата" and cfg.brand["theme"] == "pine"
     assert cfg.contacts["coordinates"] == [48.8372, 23.4456] and cfg.contacts["viber"] == "+380671234567"
     big, small = cfg.objects
     assert (big["key"], big["units"], big["price"], big["base_guests"], big["max_guests"]) == ("velykyi-kotedzh", 2, 8500, 4, 6)

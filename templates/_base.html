@@ -2,7 +2,7 @@
 {%- set S = url_for('static', filename='') -%}
 {%- set home = url_for('index') -%}
 <!doctype html>
-<html lang="{{ site.seo.lang }}" data-theme="{{ brand.theme }}"{% if demo %} data-demo data-wm="{{ demo.watermark }}" data-yd="{{ demo.id }}" data-dh="{{ demo.hosts }}"{% endif %}>
+<html lang="{{ site.seo.lang }}" data-theme="{{ brand.theme }}"{% if ds %} data-ds data-tone="{{ ds.tone }}"{% endif %}{% if demo %} data-demo data-wm="{{ demo.watermark }}" data-yd="{{ demo.id }}" data-dh="{{ demo.hosts }}"{% endif %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -20,11 +20,19 @@
   {% if favicon %}<link rel="icon" href="{{ S }}{{ favicon }}">
   <link rel="apple-touch-icon" href="{{ S }}{{ favicon }}">
   {% else %}<link rel="icon" href="{{ url_for('favicon') }}" type="image/svg+xml">{% endif %}
+  {% if ds %}
+  {#- Дизайн-система: шрифти лише локальні (static/fonts), палітра 60/30/10 — static/css/palettes.css -#}
+  {% for f in ds.preload %}<link rel="preload" href="{{ S }}{{ f }}" as="font" type="font/woff2" crossorigin>
+  {% endfor %}<link rel="stylesheet" href="{{ S }}css/style.css{{ V }}">
+  <link rel="stylesheet" href="{{ S }}css/palettes.css{{ V }}">
+  <link rel="stylesheet" href="{{ S }}css/design.css{{ V }}">
+  {% else %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Onest:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   {% if brand.fonts %}<link href="https://fonts.googleapis.com/css2?{{ brand.fonts }}&display=swap" rel="stylesheet">{% endif %}
   <link rel="stylesheet" href="{{ S }}css/style.css{{ V }}">
+  {% endif %}
   {% if theme_css %}<link rel="stylesheet" href="{{ url_for('theme_css') }}{{ V }}">{% endif %}
   {% block head %}{% endblock %}
 </head>
@@ -36,7 +44,11 @@
 <header class="site-header" id="top">
   <div class="container header-inner">
     <a class="brand" href="{{ home }}" aria-label="{{ brand.full_name }} — на головну">
-      {% if logo_light %}<img class="brand-logo" src="{{ S }}{{ logo_light }}" alt="{{ brand.name }}" height="46">
+      {% if ds and logo_light and logo and logo != logo_light %}
+      {#- світла шапка після прокрутки — темний логотип; прозора над фото — світлий -#}
+      <img class="brand-logo brand-logo--on-photo" src="{{ S }}{{ logo_light }}" alt="{{ brand.name }}" height="46">
+      <img class="brand-logo brand-logo--on-page" src="{{ S }}{{ logo }}" alt="" aria-hidden="true" height="46" loading="lazy">
+      {% elif logo_light %}<img class="brand-logo" src="{{ S }}{{ logo_light }}" alt="{{ brand.name }}" height="46">
       {% else %}<span class="brand-name">{{ brand.name }}</span>{% endif %}
     </a>
     <nav class="nav" id="nav" aria-label="Головне меню">
@@ -124,5 +136,6 @@
 <script src="{{ S }}js/pricing.js{{ V }}"></script>
 <script src="{{ S }}js/api.js{{ V }}"></script>
 <script src="{{ S }}js/main.js{{ V }}"></script>
+{% if ds %}<script src="{{ S }}js/motion.js{{ V }}"></script>{% endif %}
 </body>
 </html>

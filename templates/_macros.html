@@ -1,7 +1,7 @@
 {% from "_icons.html" import icon %}
 
 {# Фото або заглушка в кольорах теми (якщо в папці static/media/objects/<id>/ ще немає фото). #}
-{% macro photo(o, src=None, cls="", label=None, eager=False, sizes="(max-width: 760px) 100vw, 50vw") -%}
+{% macro photo(o, src=None, cls="", label=None, eager=False, sizes="(max-width: 760px) calc(100vw - 40px), 50vw") -%}
 {%- if src -%}
 {%- set t = thumb_for(src) -%}
 <img class="photo {{ cls }}" src="{{ media_url(src) }}"

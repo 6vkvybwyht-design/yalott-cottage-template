@@ -20,6 +20,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 import database as db_
 import demo
+import design
 import gallery
 import notifications
 import pricing as P
@@ -186,8 +187,11 @@ def theme_overrides(brand):
 
 def favicon_svg(brand):
     letter = (re.sub(r"[^\w]", "", brand["name"]) or "•")[0].upper()
-    bg = brand["primary_color"] or {"dark": "#17181a", "wood": "#3a2a1d", "forest": "#16301f",
-                                      "midnight": "#0d1a2e", "cabin": "#1d3326"}[brand["theme"]]
+    if brand["theme"] in design.PALETTES:
+        bg = design.derive(design.PALETTES[brand["theme"]])["deep"]
+    else:
+        bg = brand["primary_color"] or {"dark": "#17181a", "wood": "#3a2a1d", "forest": "#16301f",
+                                          "midnight": "#0d1a2e", "cabin": "#1d3326"}[brand["theme"]]
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="{bg}"/>'
             f'<text x="32" y="44" font-family="Georgia,serif" font-size="36" text-anchor="middle" '
             f'fill="{_contrast(bg)}">{letter}</text></svg>')
@@ -254,6 +258,10 @@ def create_app(test_config=None):
     logo_light = brand["logo_light"] if gallery.exists(brand["logo_light"]) else logo
     favicon = brand["favicon"] if gallery.exists(brand["favicon"]) else None
     overrides = theme_overrides(brand)
+    # Тема дизайн-системи (design.PALETTES): свої стилі, локальні шрифти, анімації; старі теми — як були.
+    ds = ({"preload": design.preload(brand["theme"]),
+           "tone": "dark" if design.is_dark(design.PALETTES[brand["theme"]]["c60"]) else "light"}
+          if brand["theme"] in design.PALETTES else None)
 
     demo_on = demo.enabled(site)
     demo_id = demo.fingerprint(site, key) if demo_on else ""
@@ -280,9 +288,9 @@ def create_app(test_config=None):
         return {"csrf_token": session["csrf"], "current_year": now_local().year, "site": site,
                 "brand": brand, "contacts": site.contacts, "rules": site.rules, "sections": site.sections,
                 "nav_objects": site.objects, "logo": logo, "logo_light": logo_light, "favicon": favicon,
-                "theme_css": bool(overrides), "V": asset_version, "demo": info}
+                "theme_css": bool(overrides), "V": asset_version, "demo": info, "ds": ds}
 
-    app.jinja_env.globals.update(thumb_for=gallery.thumb_for, plural=site_config.plural,
+    app.jinja_env.globals.update(thumb_for=gallery.thumb_for, photo_width=gallery.width, plural=site_config.plural,
                                  guests_gen=site_config.guests_gen, media_url=media_url)
     app.extensions["fh_today"] = lambda: today_iso()  # київська дата для адмінки
     app.extensions["theme_css"] = overrides
@@ -373,8 +381,10 @@ def register_routes(app):
             abort(404)
         featured = next((c for c in cards if c["featured"]), None)
         hero = gallery.first(site.media("hero")) or (featured or cards[0])["cover"]
+        hero_mobile = gallery.first(site.media("hero") + "/mobile")   # вертикальне фото для телефона (необов'язково)
         og = site.seo["og_image"] if gallery.exists(site.seo["og_image"]) else hero
         return render_template("index.html", objects=cards, featured=featured, selected=None, hero=hero,
+                               hero_mobile=hero_mobile,
                                og_image=og, price_from=min(c["price_from"] for c in cards),
                                periods=db_.periods(db), gallery_photos=gallery.photos(site.media("gallery")),
                                **common_page_data(db, site, cards))

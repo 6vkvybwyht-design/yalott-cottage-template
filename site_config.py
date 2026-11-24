@@ -23,7 +23,13 @@ import yaml
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_PATH = os.path.join(BASE_DIR, "config", "site.yaml")
 
-THEMES = ("dark", "wood", "forest", "midnight", "cabin")
+import design  # noqa: E402  (дизайн-система: палітри 60/30/10)
+
+# Теми дизайн-системи (design.PALETTES: 3 кольори 60/30/10, локальні шрифти, анімації) — для НОВИХ сайтів.
+# Старі теми (dark, wood, forest, midnight, cabin) лишаються як є: на них працюють сайти клієнтів.
+DS_THEMES = tuple(design.PALETTES)
+LEGACY_THEMES = ("dark", "wood", "forest", "midnight", "cabin")
+THEMES = DS_THEMES + LEGACY_THEMES
 # Свої шрифти теми (Google Fonts, запит css2 без display): тема без запису — лише спільні шрифти з _base.html.
 THEME_FONTS = {
     "midnight": "family=Prata&family=Tenor+Sans",
@@ -254,6 +260,9 @@ def validate(raw, check_photos=True, static_dir=None, media="media"):
         v = brand.get(key)
         if v not in (None, "") and not (isinstance(v, str) and COLOR_RE.match(v.strip())):
             c.err(f"brand → {key}", f"колір має бути у форматі \"#a06a3c\" (у лапках), а вказано «{v}»")
+        elif v not in (None, "") and theme in DS_THEMES:
+            c.err(f"brand → {key}", f"тема «{theme}» — палітра дизайн-системи з перевіреним контрастом (60/30/10); "
+                  "свої кольори поверх неї не задаються. Залиште поле порожнім або оберіть іншу палітру")
     prefix = brand.get("booking_prefix")
     if prefix not in (None, "") and not re.match(r"^[A-Z0-9]{2,5}$", str(prefix)):
         c.err("brand → booking_prefix", "2–5 великих латинських літер або цифр, напр. RH")
