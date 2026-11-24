@@ -324,7 +324,7 @@ p { margin: 0 0 1em; }
 .cal-months { display: grid; gap: 24px; }
 @media (min-width: 861px) { .cal-months { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 860px) { .cal-month:nth-child(2) { display: none; } }
-.cal-month h4 { margin: 0 0 8px; font-size: 14px; font-weight: 600; text-align: center; color: var(--text-2); }
+.cal-month h4, html[data-theme] .cal-month > .cal-mt { margin: 0 0 8px; font-family: var(--font); font-size: 14px; font-weight: 600; letter-spacing: -.025em; line-height: 1.12; text-align: center; color: var(--text-2); }  /* назва місяця (h3 для порядку заголовків) — вигляд колишнього h4 */
 .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
 .cal-wd { text-align: center; font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-3); padding: 4px 0; }
 .cal-day { position: relative; aspect-ratio: 1 / 1.05; min-width: 0; border: 0; border-radius: 10px; padding: 0; display: grid; place-content: center; gap: 0; font: inherit; cursor: pointer; background: transparent; color: var(--text); transition: background .15s, color .15s; }

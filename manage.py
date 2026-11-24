@@ -11,6 +11,7 @@
     python manage.py demo-link      посилання на демо-версію з терміном дії (demo.enabled у конфігу)
     python manage.py demo-find ФАЙЛ чи є в збереженій сторінці / тексті позначка нашого демо
     python manage.py set-password   змінити пароль адмінки
+    python manage.py design-css     оновити static/css/palettes.css з design.py (палітри 60/30/10)
     python manage.py deploy-info    опис сайту для серверного скрипта launch-site (JSON, без секретів)
 
 Інший конфіг: додайте  --config config/examples/ramshill.yaml  (або змінну SITE_CONFIG).
@@ -408,7 +409,7 @@ def render_config(d, source="python manage.py new-client"):
     add('  logo: ""                             # шлях у static/, напр. media/brand/logo.png. Порожньо — назва текстом')
     add('  logo_light: ""                       # логотип для темного тла (шапка). Порожньо = logo')
     add('  favicon: ""                          # іконка вкладки. Порожньо — літера з назви')
-    add(f"  theme: {d['theme']}                 # dark | wood | forest | midnight | cabin{note(d, 'theme')}")
+    add(f"  theme: {d['theme']}                 # {' | '.join(site_config.DS_THEMES)} (старі: {' | '.join(site_config.LEGACY_THEMES)}){note(d, 'theme')}")
     add('  primary_color: ""                    # свій колір кнопок, напр. "#3a2a1d"')
     add('  accent_color: ""                     # свій акцентний колір')
     add("")
@@ -549,10 +550,11 @@ def wizard():
     d["kind"] = ask("Тип закладу перед назвою (Котеджі / Приватна садиба; можна порожньо)", "")
     d["tagline"] = ask("Слоган, один рядок", "Котеджі в Карпатах")
     d["description"] = ask("Опис для головної, 1–2 речення", d["tagline"])
-    themes = {"1": "dark", "2": "wood", "3": "forest", "4": "midnight", "5": "cabin"}
-    choice = ask("Тема: 1 — dark (чорна, теплі вогні), 2 — wood (світла, дерево), 3 — forest (темно-зелена), "
-                 "4 — midnight (темно-синя із золотом), 5 — cabin (тепле дерево, глибокий зелений, мідь)", "2",
-                 lambda v: None if v in themes or v in themes.values() else "Введіть число від 1 до 5.")
+    import design
+    themes = {str(i): name for i, name in enumerate(design.PALETTES, 1)}
+    menu = "; ".join(f"{i} — {n} ({design.PALETTES[n]['label']})" for i, n in themes.items())
+    choice = ask(f"Тема (палітра 60/30/10): {menu}. Старі теми — назвою: {', '.join(site_config.LEGACY_THEMES)}", "1",
+                 lambda v: None if v in themes or v in site_config.THEMES else f"Введіть число від 1 до {len(themes)} або назву теми.")
     d["theme"] = themes.get(choice, choice)
 
     print("\n— Контакти —")
@@ -860,6 +862,29 @@ def cmd_from_chat(args):
     return 1 if errors else 0
 
 
+# ---------- design-css ----------
+
+def cmd_design_css(args):
+    """static/css/palettes.css з design.py (палітри 60/30/10 і локальні шрифти). Запускати після зміни палітр."""
+    import design
+    problems = [f"{name}: {label} — контраст {design.contrast(fg, bg):.2f}, потрібно ≥ {need}"
+                for name in design.PALETTES for label, fg, bg, need in design.checks(name)
+                if design.contrast(fg, bg) < need]
+    if problems:
+        print("\nПалітри не проходять перевірку контрасту (WCAG AA):")
+        for p in problems:
+            print(f"{FAIL} {p}")
+        return 1
+    missing = [f for folder, w in design.used_fonts() for f in design.font_files(folder, w).values()
+               if not os.path.exists(os.path.join(BASE_DIR, "static", f))]
+    if missing:
+        print("\nБракує файлів шрифтів:\n" + "\n".join(f"{FAIL} static/{m}" for m in missing))
+        return 1
+    path = design.write_css()
+    print(f"{OK} {_rel(path)}: тем — {len(design.PALETTES)}, шрифтів — {len(design.used_fonts())}")
+    return 0
+
+
 # ---------- deploy-info (для sudo launch-site на сервері) ----------
 
 def cmd_deploy_info(args):
@@ -931,7 +956,7 @@ def main(argv=None):
     p.add_argument("file", nargs="?", help="файл із текстом чату (без нього — вставити текст у термінал)")
     p.add_argument("--output", default=os.path.join("config", "site.yaml"), help="куди зберегти (типово config/site.yaml)")
     p.add_argument("--force", action="store_true", help="замінити наявний файл (старий збережеться як .bak)")
-    p.add_argument("--theme", choices=site_config.THEMES, help="тема оформлення (типово wood)")
+    p.add_argument("--theme", choices=site_config.THEMES, help="тема оформлення (типово pine)")
     p.set_defaults(func=cmd_from_chat)
 
     p = sub.add_parser("new-client", help="майстер: створити config/site.yaml для нового клієнта")
@@ -954,6 +979,8 @@ def main(argv=None):
     p.add_argument("--no-warm", action="store_true", help="не готувати фото з водяним знаком заздалегідь")
     p = command("demo-find", cmd_demo_find, "знайти позначку нашого демо в чужій сторінці, тексті чи фото")
     p.add_argument("file", nargs="?", help="збережена сторінка (.html), текст або фото")
+    p = sub.add_parser("design-css", help="оновити static/css/palettes.css з design.py (палітри й шрифти)")
+    p.set_defaults(func=cmd_design_css)
     p = command("deploy-info", cmd_deploy_info, "опис сайту для серверного скрипта launch-site (JSON, без секретів)")
     p.add_argument("--db", metavar="ФАЙЛ", help="ще й перевірити файл бази, який переносять на сервер")
     p = command("set-password", cmd_set_password, "змінити пароль адмінки")

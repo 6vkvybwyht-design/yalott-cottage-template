@@ -10,3 +10,6 @@ instance/
 # Оригінали фото — лише локально (вони важкі). У git ідуть оброблені зі static/media/ (python manage.py photos).
 media/*
 !media/README.md
+
+# повні сторінки зі звіту дизайну (tools/design_review.py) — великі, не в git
+docs/design/full/

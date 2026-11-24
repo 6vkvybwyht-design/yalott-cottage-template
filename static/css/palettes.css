@@ -1,0 +1,391 @@
+/* Згенеровано з design.py — НЕ РЕДАГУЙТЕ вручну. Оновити: python manage.py design-css */
+
+/* ── Шрифти (локально, лише кирилиця й латиниця; браузер качає тільки потрібне) ── */
+@font-face { font-family: 'Commissioner'; font-style: normal; font-weight: 400; font-display: swap; src: url('../fonts/commissioner/commissioner-cyrillic-400-normal.woff2') format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Commissioner'; font-style: normal; font-weight: 400; font-display: swap; src: url('../fonts/commissioner/commissioner-latin-400-normal.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Commissioner'; font-style: normal; font-weight: 600; font-display: swap; src: url('../fonts/commissioner/commissioner-cyrillic-600-normal.woff2') format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Commissioner'; font-style: normal; font-weight: 600; font-display: swap; src: url('../fonts/commissioner/commissioner-latin-600-normal.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Cormorant Garamond'; font-style: normal; font-weight: 600; font-display: swap; src: url('../fonts/cormorant-garamond/cormorant-garamond-cyrillic-600-normal.woff2') format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Cormorant Garamond'; font-style: normal; font-weight: 600; font-display: swap; src: url('../fonts/cormorant-garamond/cormorant-garamond-latin-600-normal.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Forum'; font-style: normal; font-weight: 400; font-display: swap; src: url('../fonts/forum/forum-cyrillic-400-normal.woff2') format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Forum'; font-style: normal; font-weight: 400; font-display: swap; src: url('../fonts/forum/forum-latin-400-normal.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Golos Text'; font-style: normal; font-weight: 400; font-display: swap; src: url('../fonts/golos-text/golos-text-cyrillic-400-normal.woff2') format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Golos Text'; font-style: normal; font-weight: 400; font-display: swap; src: url('../fonts/golos-text/golos-text-latin-400-normal.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Golos Text'; font-style: normal; font-weight: 600; font-display: swap; src: url('../fonts/golos-text/golos-text-cyrillic-600-normal.woff2') format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Golos Text'; font-style: normal; font-weight: 600; font-display: swap; src: url('../fonts/golos-text/golos-text-latin-600-normal.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 400; font-display: swap; src: url('../fonts/inter/inter-cyrillic-400-normal.woff2') format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 400; font-display: swap; src: url('../fonts/inter/inter-latin-400-normal.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 600; font-display: swap; src: url('../fonts/inter/inter-cyrillic-600-normal.woff2') format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 600; font-display: swap; src: url('../fonts/inter/inter-latin-600-normal.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Literata'; font-style: normal; font-weight: 600; font-display: swap; src: url('../fonts/literata/literata-cyrillic-600-normal.woff2') format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Literata'; font-style: normal; font-weight: 600; font-display: swap; src: url('../fonts/literata/literata-latin-600-normal.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Lora'; font-style: normal; font-weight: 600; font-display: swap; src: url('../fonts/lora/lora-cyrillic-600-normal.woff2') format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Lora'; font-style: normal; font-weight: 600; font-display: swap; src: url('../fonts/lora/lora-latin-600-normal.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Manrope'; font-style: normal; font-weight: 400; font-display: swap; src: url('../fonts/manrope/manrope-cyrillic-400-normal.woff2') format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Manrope'; font-style: normal; font-weight: 400; font-display: swap; src: url('../fonts/manrope/manrope-latin-400-normal.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Manrope'; font-style: normal; font-weight: 600; font-display: swap; src: url('../fonts/manrope/manrope-cyrillic-600-normal.woff2') format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Manrope'; font-style: normal; font-weight: 600; font-display: swap; src: url('../fonts/manrope/manrope-latin-600-normal.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Montserrat'; font-style: normal; font-weight: 400; font-display: swap; src: url('../fonts/montserrat/montserrat-cyrillic-400-normal.woff2') format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Montserrat'; font-style: normal; font-weight: 400; font-display: swap; src: url('../fonts/montserrat/montserrat-latin-400-normal.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Montserrat'; font-style: normal; font-weight: 600; font-display: swap; src: url('../fonts/montserrat/montserrat-cyrillic-600-normal.woff2') format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Montserrat'; font-style: normal; font-weight: 600; font-display: swap; src: url('../fonts/montserrat/montserrat-latin-600-normal.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Onest'; font-style: normal; font-weight: 400; font-display: swap; src: url('../fonts/onest/onest-cyrillic-400-normal.woff2') format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Onest'; font-style: normal; font-weight: 400; font-display: swap; src: url('../fonts/onest/onest-latin-400-normal.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Onest'; font-style: normal; font-weight: 600; font-display: swap; src: url('../fonts/onest/onest-cyrillic-600-normal.woff2') format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Onest'; font-style: normal; font-weight: 600; font-display: swap; src: url('../fonts/onest/onest-latin-600-normal.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Playfair Display'; font-style: normal; font-weight: 500; font-display: swap; src: url('../fonts/playfair-display/playfair-display-cyrillic-500-normal.woff2') format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Playfair Display'; font-style: normal; font-weight: 500; font-display: swap; src: url('../fonts/playfair-display/playfair-display-latin-500-normal.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Prata'; font-style: normal; font-weight: 400; font-display: swap; src: url('../fonts/prata/prata-cyrillic-400-normal.woff2') format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Prata'; font-style: normal; font-weight: 400; font-display: swap; src: url('../fonts/prata/prata-latin-400-normal.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'PT Sans'; font-style: normal; font-weight: 400; font-display: swap; src: url('../fonts/pt-sans/pt-sans-cyrillic-400-normal.woff2') format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'PT Sans'; font-style: normal; font-weight: 400; font-display: swap; src: url('../fonts/pt-sans/pt-sans-latin-400-normal.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'PT Sans'; font-style: normal; font-weight: 700; font-display: swap; src: url('../fonts/pt-sans/pt-sans-cyrillic-700-normal.woff2') format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'PT Sans'; font-style: normal; font-weight: 700; font-display: swap; src: url('../fonts/pt-sans/pt-sans-latin-700-normal.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Unbounded'; font-style: normal; font-weight: 500; font-display: swap; src: url('../fonts/unbounded/unbounded-cyrillic-500-normal.woff2') format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Unbounded'; font-style: normal; font-weight: 500; font-display: swap; src: url('../fonts/unbounded/unbounded-latin-500-normal.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Yeseva One'; font-style: normal; font-weight: 400; font-display: swap; src: url('../fonts/yeseva-one/yeseva-one-cyrillic-400-normal.woff2') format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Yeseva One'; font-style: normal; font-weight: 400; font-display: swap; src: url('../fonts/yeseva-one/yeseva-one-latin-400-normal.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+
+/* pine — «Смерека»: глибокий зелений, беж і мідь — ліс, дерево, вогонь у каміні */
+html[data-theme="pine"] {
+  --c60: #1d3127;
+  --c30: #efe5d3;
+  --c10: #d08a56;
+  --on-60: #fbf7f2;
+  --muted-60: #a7ada6;
+  --faint-60: #8f9790;
+  --line-60: #3c4d43;
+  --tint-60: #25382e;
+  --on-30: #151612;
+  --muted-30: #57544c;
+  --faint-30: #69665c;
+  --line-30: #ccc4b4;
+  --tint-30: #e2d9c7;
+  --field-30: #f9f5ed;
+  --field-line-30: #908e88;
+  --scheme-30: light;
+  --on-10: #151612;
+  --c10-hover: #d6986a;
+  --accent-60: #d08a56;
+  --accent-30: #855c3b;
+  --accent-soft-30: #e9d3ba;
+  --deep: #16251d;
+  --on-deep: #fbf7f2;
+  --muted-deep: #9ca099;
+  --accent-deep: #d08a56;
+  --scrim: 0.62;
+  --scrim-color: rgba(22, 37, 29, 0.62);
+  --scrim-mid: rgba(22, 37, 29, 0.31);
+  --scrim-clear: rgba(22, 37, 29, 0.00);
+  --accent-hero: #fffefd;
+  --radius: 18px;
+  --radius-sm: 12px;
+  --radius-btn: 999px;
+  --font-head: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+  --head-weight: 600;
+  --head-spacing: -0.01em;
+  --font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --body-strong: 600;
+  color-scheme: dark;
+}
+
+/* graphite — «Графіт»: графіт, молочний і золото — стримано, по-міському дорого */
+html[data-theme="graphite"] {
+  --c60: #1f2226;
+  --c30: #f3eee5;
+  --c10: #d4ab55;
+  --on-60: #fbf8f2;
+  --muted-60: #9f9f9d;
+  --faint-60: #898a89;
+  --line-60: #3e4043;
+  --tint-60: #27292d;
+  --on-30: #151412;
+  --muted-30: #5c5955;
+  --faint-30: #6d6b66;
+  --line-30: #cfcbc3;
+  --tint-30: #e6e1d8;
+  --field-30: #faf8f5;
+  --field-line-30: #92908e;
+  --scheme-30: light;
+  --on-10: #151412;
+  --c10-hover: #d9b569;
+  --accent-60: #d4ab55;
+  --accent-30: #7e6737;
+  --accent-soft-30: #ede1c8;
+  --deep: #171a1c;
+  --on-deep: #fbf8f2;
+  --muted-deep: #989895;
+  --accent-deep: #d4ab55;
+  --scrim: 0.60;
+  --scrim-color: rgba(23, 26, 28, 0.60);
+  --scrim-mid: rgba(23, 26, 28, 0.30);
+  --scrim-clear: rgba(23, 26, 28, 0.00);
+  --accent-hero: #fffefd;
+  --radius: 2px;
+  --radius-sm: 2px;
+  --radius-btn: 2px;
+  --font-head: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --head-weight: 500;
+  --head-spacing: -0.01em;
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --body-strong: 600;
+  color-scheme: dark;
+}
+
+/* terracotta — «Теракота»: білий, камінь і теракота — світло, глина, південне сонце */
+html[data-theme="terracotta"] {
+  --c60: #fbf9f5;
+  --c30: #e9e3d9;
+  --c10: #a9482a;
+  --on-60: #2e2b27;
+  --muted-60: #625f5b;
+  --faint-60: #74716d;
+  --line-60: #dedcd8;
+  --tint-60: #f4f2ee;
+  --on-30: #302e2b;
+  --muted-30: #55534e;
+  --faint-30: #68645f;
+  --line-30: #cbc6bd;
+  --tint-30: #ded8cf;
+  --field-30: #f6f4f0;
+  --field-line-30: #8f8d8a;
+  --scheme-30: light;
+  --on-10: #fbf8f3;
+  --c10-hover: #953f25;
+  --accent-60: #a9482a;
+  --accent-30: #a5472a;
+  --accent-soft-30: #dcc4b6;
+  --deep: #2b1610;
+  --on-deep: #faf7f2;
+  --muted-deep: #a19791;
+  --accent-deep: #bc725a;
+  --scrim: 0.60;
+  --scrim-color: rgba(43, 22, 16, 0.60);
+  --scrim-mid: rgba(43, 22, 16, 0.30);
+  --scrim-clear: rgba(43, 22, 16, 0.00);
+  --accent-hero: #ffffff;
+  --radius: 18px;
+  --radius-sm: 12px;
+  --radius-btn: 999px;
+  --font-head: 'Lora', Georgia, 'Times New Roman', serif;
+  --head-weight: 600;
+  --head-spacing: -0.015em;
+  --font: 'Golos Text', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --body-strong: 600;
+  color-scheme: light;
+}
+
+/* night — «Ніч»: нічне небо, пісок і лайм — сучасно, сміливо, для глемпінгу */
+html[data-theme="night"] {
+  --c60: #0f141b;
+  --c30: #e6d8bf;
+  --c10: #c6e15b;
+  --on-60: #faf7f1;
+  --muted-60: #939393;
+  --faint-60: #7e7f80;
+  --line-60: #303439;
+  --tint-60: #171c22;
+  --on-30: #131210;
+  --muted-30: #514c44;
+  --faint-30: #635d53;
+  --line-30: #c4b8a3;
+  --tint-30: #d9ccb4;
+  --field-30: #f5efe5;
+  --field-line-30: #8e8a84;
+  --scheme-30: light;
+  --on-10: #131210;
+  --c10-hover: #cde56f;
+  --accent-60: #c6e15b;
+  --accent-30: #59632d;
+  --accent-soft-30: #e0daab;
+  --deep: #0b0f14;
+  --on-deep: #faf7f1;
+  --muted-deep: #90908f;
+  --accent-deep: #c6e15b;
+  --scrim: 0.57;
+  --scrim-color: rgba(11, 15, 20, 0.57);
+  --scrim-mid: rgba(11, 15, 20, 0.28);
+  --scrim-clear: rgba(11, 15, 20, 0.00);
+  --accent-hero: #fefefc;
+  --radius: 28px;
+  --radius-sm: 18px;
+  --radius-btn: 999px;
+  --font-head: 'Unbounded', 'Arial Black', system-ui, sans-serif;
+  --head-weight: 500;
+  --head-spacing: -0.03em;
+  --font: 'Onest', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --body-strong: 600;
+  color-scheme: dark;
+}
+
+/* linen — «Льон»: льон, сланцево-зелений і бронза — тепла класика садиби */
+html[data-theme="linen"] {
+  --c60: #f5f0e7;
+  --c30: #2e3c36;
+  --c10: #965c18;
+  --on-60: #171714;
+  --muted-60: #5c5a56;
+  --faint-60: #6e6c67;
+  --line-60: #d6d2c9;
+  --tint-60: #ede8e0;
+  --on-30: #fbf8f3;
+  --muted-30: #b9bcb6;
+  --faint-30: #a0a59f;
+  --line-30: #4f5a54;
+  --tint-30: #3a4741;
+  --field-30: #242f2a;
+  --field-line-30: #707772;
+  --scheme-30: dark;
+  --on-10: #fbf8f3;
+  --c10-hover: #845115;
+  --accent-60: #965c18;
+  --accent-30: #c09e74;
+  --accent-soft-30: #434230;
+  --deep: #25302b;
+  --on-deep: #f3f0eb;
+  --muted-deep: #abada8;
+  --accent-deep: #b79062;
+  --scrim: 0.65;
+  --scrim-color: rgba(37, 48, 43, 0.65);
+  --scrim-mid: rgba(37, 48, 43, 0.33);
+  --scrim-clear: rgba(37, 48, 43, 0.00);
+  --accent-hero: #ffffff;
+  --radius: 10px;
+  --radius-sm: 8px;
+  --radius-btn: 8px;
+  --font-head: 'Prata', Georgia, 'Times New Roman', serif;
+  --head-weight: 400;
+  --head-spacing: 0;
+  --font: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --body-strong: 600;
+  color-scheme: light;
+}
+
+/* lake — «Озеро»: туман над водою, глибока бірюза й корал — свіжо й спокійно */
+html[data-theme="lake"] {
+  --c60: #eef2f0;
+  --c30: #1f3b47;
+  --c10: #b04830;
+  --on-60: #151716;
+  --muted-60: #595b5a;
+  --faint-60: #6b6d6c;
+  --line-60: #d0d3d1;
+  --tint-60: #e6eae8;
+  --on-30: #faf8f3;
+  --muted-30: #b3babb;
+  --faint-30: #98a4a6;
+  --line-30: #425963;
+  --tint-30: #2c4651;
+  --field-30: #182e37;
+  --field-line-30: #68767a;
+  --scheme-30: dark;
+  --on-10: #faf8f3;
+  --c10-hover: #9b3f2a;
+  --accent-60: #b04830;
+  --accent-30: #d09484;
+  --accent-soft-30: #3c3e42;
+  --deep: #192f39;
+  --on-deep: #f2f0ec;
+  --muted-deep: #a5acac;
+  --accent-deep: #c88474;
+  --scrim: 0.65;
+  --scrim-color: rgba(25, 47, 57, 0.65);
+  --scrim-mid: rgba(25, 47, 57, 0.33);
+  --scrim-clear: rgba(25, 47, 57, 0.00);
+  --accent-hero: #ffffff;
+  --radius: 18px;
+  --radius-sm: 12px;
+  --radius-btn: 999px;
+  --font-head: 'Literata', Georgia, 'Times New Roman', serif;
+  --head-weight: 600;
+  --head-spacing: -0.02em;
+  --font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --body-strong: 600;
+  color-scheme: light;
+}
+
+/* birch — «Береза»: білий, шавлія й лісовий зелений — чисто, скандинавськи */
+html[data-theme="birch"] {
+  --c60: #fafaf7;
+  --c30: #dfe4dc;
+  --c10: #2c5e4b;
+  --on-60: #2c2b28;
+  --muted-60: #61605d;
+  --faint-60: #73726f;
+  --line-60: #ddddda;
+  --tint-60: #f3f3f0;
+  --on-30: #302e2b;
+  --muted-30: #53524e;
+  --faint-30: #646460;
+  --line-30: #c3c7c0;
+  --tint-30: #d4d9d1;
+  --field-30: #f2f4f1;
+  --field-line-30: #8e8d8a;
+  --scheme-30: light;
+  --on-10: #fbf8f3;
+  --c10-hover: #275342;
+  --accent-60: #2c5e4b;
+  --accent-30: #2c5e4b;
+  --accent-soft-30: #bbc9bf;
+  --deep: #121b16;
+  --on-deep: #faf7f2;
+  --muted-deep: #959893;
+  --accent-deep: #688a7b;
+  --scrim: 0.60;
+  --scrim-color: rgba(18, 27, 22, 0.60);
+  --scrim-mid: rgba(18, 27, 22, 0.30);
+  --scrim-clear: rgba(18, 27, 22, 0.00);
+  --accent-hero: #fdfdfd;
+  --radius: 10px;
+  --radius-sm: 8px;
+  --radius-btn: 8px;
+  --font-head: 'Forum', Georgia, 'Times New Roman', serif;
+  --head-weight: 400;
+  --head-spacing: 0.01em;
+  --font: 'Commissioner', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --body-strong: 600;
+  color-scheme: light;
+}
+
+/* ember — «Жар»: вугілля, темне дерево й жар — баня, чан, вечір біля вогню */
+html[data-theme="ember"] {
+  --c60: #171310;
+  --c30: #2a221d;
+  --c10: #e8783f;
+  --on-60: #f3efea;
+  --muted-60: #97938e;
+  --faint-60: #837f7b;
+  --line-60: #36322f;
+  --tint-60: #1f1b18;
+  --on-30: #f2efea;
+  --muted-30: #a4a09b;
+  --faint-30: #908b86;
+  --line-30: #4a433e;
+  --tint-30: #362e29;
+  --field-30: #211b17;
+  --field-line-30: #6b6662;
+  --scheme-30: dark;
+  --on-10: #14120f;
+  --c10-hover: #eb8856;
+  --accent-60: #e8783f;
+  --accent-30: #e8783f;
+  --accent-soft-30: #503324;
+  --deep: #110e0c;
+  --on-deep: #f3efea;
+  --muted-deep: #93908c;
+  --accent-deep: #e8783f;
+  --scrim: 0.57;
+  --scrim-color: rgba(17, 14, 12, 0.57);
+  --scrim-mid: rgba(17, 14, 12, 0.28);
+  --scrim-clear: rgba(17, 14, 12, 0.00);
+  --accent-hero: #fffefd;
+  --radius: 18px;
+  --radius-sm: 12px;
+  --radius-btn: 999px;
+  --font-head: 'Yeseva One', Georgia, 'Times New Roman', serif;
+  --head-weight: 400;
+  --head-spacing: 0;
+  --font: 'PT Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --body-strong: 700;
+  color-scheme: dark;
+}

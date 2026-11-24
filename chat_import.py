@@ -465,11 +465,12 @@ def parse_chat(text, today=None, slugify=None):
     def part(n):
         return sec.get(n, "")
 
-    d = {"_flags": {}, "kind": "", "tagline": "", "description": "", "theme": "wood", "viber": "", "whatsapp": "",
+    d = {"_flags": {}, "kind": "", "tagline": "", "description": "", "theme": "pine", "viber": "", "whatsapp": "",
          "telegram": "", "instagram": "", "tiktok": "", "email": "", "region": "", "coordinates": "",
          "directions": "", "pets": "", "smoking": "", "quiet": ""}
     flags = d["_flags"]
-    flags["theme"] = "ПЕРЕВІРИТИ: тему обирає студія — dark, wood, forest, midnight або cabin"
+    flags["theme"] = ("ПЕРЕВІРИТИ: тему обирає студія — палітра pine, graphite, terracotta, night, linen, lake, "
+                       "birch або ember (порівняти: docs/design/)")
 
     # 1. назва й адреса
     first = part(1)
