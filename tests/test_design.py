@@ -251,3 +251,37 @@ def test_config_refuses_custom_colors_over_palette(tmp_path):
     raw = raw.replace('  accent_color: ""', '  accent_color: "#ff0000"')
     errors, _ = site_config.validate(__import__("yaml").safe_load(raw), check_photos=False)
     assert any("brand → accent_color" in e and "60/30/10" in e for e in errors)
+
+
+def test_mobile_hero_photo_and_real_srcset_widths(make_site, tmp_path, monkeypatch):
+    """media/hero/mobile/ — окреме вертикальне фото банера для телефона; ширини в srcset — справжні."""
+    import gallery
+    from PIL import Image
+    static = tmp_path / "static"
+    for rel, size in (("media/hero/01.webp", (1600, 1200)), ("media/hero/thumb/01.webp", (600, 450)),
+                      ("media/hero/mobile/01.webp", (1000, 1333)), ("media/hero/mobile/thumb/01.webp", (600, 800))):
+        (static / rel).parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", size, (90, 60, 40)).save(static / rel, "WEBP")
+    monkeypatch.setattr(gallery, "STATIC_DIR", str(static))
+    assert gallery.width("media/hero/mobile/01.webp") == 1000 and gallery.width("media/nope.webp") == 0
+    raw = open(CONFIGS["site"], encoding="utf-8").read().replace("  theme: forest", "  theme: birch")
+    cfg = tmp_path / "site.yaml"
+    cfg.write_text(raw, encoding="utf-8")
+    page = make_site(str(cfg)).html("/")
+    assert '<source media="(max-width: 760px)" srcset="/static/media/hero/mobile/thumb/01.webp 600w, ' \
+           '/static/media/hero/mobile/01.webp 1000w" sizes="100vw">' in page
+    assert 'srcset="/static/media/hero/thumb/01.webp 600w, /static/media/hero/01.webp 1600w"' in page
+
+
+def test_photos_pipeline_makes_mobile_hero_1000px(tmp_path, monkeypatch):
+    import photos
+    from PIL import Image
+    monkeypatch.setattr(photos, "BASE_DIR", str(tmp_path))
+    (tmp_path / "media" / "hero" / "mobile").mkdir(parents=True)
+    Image.new("RGB", (3000, 4000), (120, 90, 60)).save(tmp_path / "media" / "hero" / "mobile" / "vertical.jpg")
+    Image.new("RGB", (4000, 3000), (120, 90, 60)).save(tmp_path / "media" / "hero" / "wide.jpg")
+    photos.run("media", log=lambda *_: None)
+    with Image.open(tmp_path / "static" / "media" / "hero" / "mobile" / "vertical.webp") as im:
+        assert im.width == photos.MOBILE_HERO_WIDTH
+    with Image.open(tmp_path / "static" / "media" / "hero" / "wide.webp") as im:
+        assert im.width == photos.MAX_WIDTH

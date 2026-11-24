@@ -290,7 +290,7 @@ def create_app(test_config=None):
                 "nav_objects": site.objects, "logo": logo, "logo_light": logo_light, "favicon": favicon,
                 "theme_css": bool(overrides), "V": asset_version, "demo": info, "ds": ds}
 
-    app.jinja_env.globals.update(thumb_for=gallery.thumb_for, plural=site_config.plural,
+    app.jinja_env.globals.update(thumb_for=gallery.thumb_for, photo_width=gallery.width, plural=site_config.plural,
                                  guests_gen=site_config.guests_gen, media_url=media_url)
     app.extensions["fh_today"] = lambda: today_iso()  # київська дата для адмінки
     app.extensions["theme_css"] = overrides
@@ -381,8 +381,10 @@ def register_routes(app):
             abort(404)
         featured = next((c for c in cards if c["featured"]), None)
         hero = gallery.first(site.media("hero")) or (featured or cards[0])["cover"]
+        hero_mobile = gallery.first(site.media("hero") + "/mobile")   # вертикальне фото для телефона (необов'язково)
         og = site.seo["og_image"] if gallery.exists(site.seo["og_image"]) else hero
         return render_template("index.html", objects=cards, featured=featured, selected=None, hero=hero,
+                               hero_mobile=hero_mobile,
                                og_image=og, price_from=min(c["price_from"] for c in cards),
                                periods=db_.periods(db), gallery_photos=gallery.photos(site.media("gallery")),
                                **common_page_data(db, site, cards))

@@ -66,8 +66,8 @@ def _save_webp(im, path, limit=None):
             return
 
 
-def process_file(src, dst, thumb, enhance=False):
-    """Одне фото → dst (до 1600 px) і thumb (600 px). Повертає (ширина, висота) повного фото."""
+def process_file(src, dst, thumb, enhance=False, max_width=None):
+    """Одне фото → dst (до 1600 px або max_width) і thumb (600 px). Повертає (ширина, висота) повного фото."""
     from PIL import Image, ImageOps
     with Image.open(src) as im:
         im = ImageOps.exif_transpose(im)          # орієнтація з EXIF застосовується до пікселів
@@ -78,7 +78,7 @@ def process_file(src, dst, thumb, enhance=False):
             im = flat
         else:
             im = im.convert("RGB")
-        im = _fit(im, MAX_WIDTH)
+        im = _fit(im, max_width or MAX_WIDTH)
         if enhance:
             im = _enhance(im)
         os.makedirs(os.path.dirname(thumb), exist_ok=True)
@@ -102,7 +102,13 @@ def folders(src_root):
     objects = os.path.join(src_root, "objects")
     if os.path.isdir(objects):
         out += [f"objects/{d}" for d in sorted(os.listdir(objects)) if os.path.isdir(os.path.join(objects, d))]
-    return out + [d for d in ("hero", "gallery", "extras") if os.path.isdir(os.path.join(src_root, d))]
+    return out + [d for d in ("hero", "hero/mobile", "gallery", "extras") if os.path.isdir(os.path.join(src_root, d))]
+
+
+# Вертикальне фото банера для телефона (media/hero/mobile/, необов'язково): телефону вистачає 1000 px
+# завширшки — менший файл, швидший перший екран.
+MOBILE_HERO_WIDTH = 1000
+WIDTHS = {"hero/mobile": MOBILE_HERO_WIDTH}
 
 
 def run(media_root="media", force=False, enhance=False, log=print):
@@ -136,7 +142,7 @@ def run(media_root="media", force=False, enhance=False, log=print):
                 stats["skipped"] += 1
                 continue
             try:
-                process_file(src, dst, thumb, enhance)
+                process_file(src, dst, thumb, enhance, WIDTHS.get(folder))
                 done += 1
             except Exception as exc:  # зіпсований файл не зупиняє решту
                 stats["failed"].append((f"{media_root}/{folder}/{name}", str(exc)))

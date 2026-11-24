@@ -19,9 +19,18 @@
 {#- Дизайн-система: за 3 секунди зрозуміло, що це і куди тиснути — фото, назва, одна фраза, ціна «від», одна кнопка. -#}
 <section class="hero hero--ds{% if not hero %} hero--plain{% endif %}">
   {% if hero %}
-  <img class="hero-bg" src="{{ media_url(hero) }}"
-    {%- if hero_thumb %} srcset="{{ media_url(hero_thumb) }} 600w, {{ media_url(hero) }} 1600w" sizes="100vw"{% endif %}
-    alt="{{ brand.full_name }}" fetchpriority="high" decoding="async">
+  {#- ширини в srcset — справжні (photo_width), щоб телефон не брав зайво велике фото;
+      media/hero/mobile/ — вертикальне фото для телефона (необов'язково) -#}
+  {%- macro srcset(src) -%}
+  {%- set t = thumb_for(src) -%}
+  {%- if t and photo_width(t) and photo_width(src) %}{{ media_url(t) }} {{ photo_width(t) }}w, {{ media_url(src) }} {{ photo_width(src) }}w{% endif -%}
+  {%- endmacro -%}
+  <picture>
+    {% if hero_mobile %}<source media="(max-width: 760px)" srcset="{{ srcset(hero_mobile) or media_url(hero_mobile) }}" sizes="100vw">{% endif %}
+    <img class="hero-bg" src="{{ media_url(hero) }}"
+      {%- if srcset(hero) %} srcset="{{ srcset(hero) }}" sizes="100vw"{% endif %}
+      alt="{{ brand.full_name }}" fetchpriority="high" decoding="async">
+  </picture>
   {% endif %}
   <div class="hero-shade" aria-hidden="true"></div>
   <div class="container hero-inner">

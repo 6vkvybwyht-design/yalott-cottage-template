@@ -17,6 +17,7 @@ static/media/; для будь-якого іншого конфігу (прик�
 Необов'язково: файл captions.txt у папці з підписами, рядок «імʼя_файлу = Підпис».
 """
 
+import functools
 import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -88,6 +89,22 @@ def find(folder, stem):
 def first(folder):
     names = list_photos(folder)
     return f"{folder}/{names[0]}" if names else None
+
+
+@functools.lru_cache(maxsize=512)
+def _width(path, mtime):
+    from PIL import Image
+    with Image.open(path) as im:
+        return im.width
+
+
+def width(src):
+    """Ширина фото static/<src> у пікселях (для srcset), 0 — якщо файлу немає чи його не прочитати."""
+    path = os.path.join(STATIC_DIR, src or "")
+    try:
+        return _width(path, os.path.getmtime(path))
+    except Exception:  # noqa: BLE001 — srcset просто не вийде точним
+        return 0
 
 
 def exists(src):
