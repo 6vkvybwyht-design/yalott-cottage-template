@@ -283,5 +283,6 @@ def test_photos_pipeline_makes_mobile_hero_1000px(tmp_path, monkeypatch):
     photos.run("media", log=lambda *_: None)
     with Image.open(tmp_path / "static" / "media" / "hero" / "mobile" / "vertical.webp") as im:
         assert im.width == photos.MOBILE_HERO_WIDTH
+    assert (tmp_path / "static" / "media" / "hero" / "mobile" / "vertical.webp").stat().st_size <= photos.MOBILE_HERO_BYTES
     with Image.open(tmp_path / "static" / "media" / "hero" / "wide.webp") as im:
         assert im.width == photos.MAX_WIDTH

@@ -66,7 +66,7 @@ def _save_webp(im, path, limit=None):
             return
 
 
-def process_file(src, dst, thumb, enhance=False, max_width=None):
+def process_file(src, dst, thumb, enhance=False, max_width=None, target_bytes=None):
     """Одне фото → dst (до 1600 px або max_width) і thumb (600 px). Повертає (ширина, висота) повного фото."""
     from PIL import Image, ImageOps
     with Image.open(src) as im:
@@ -83,7 +83,7 @@ def process_file(src, dst, thumb, enhance=False, max_width=None):
             im = _enhance(im)
         os.makedirs(os.path.dirname(thumb), exist_ok=True)
         _save_webp(_fit(im, THUMB_WIDTH), thumb)
-        _save_webp(im, dst, TARGET_BYTES)
+        _save_webp(im, dst, target_bytes or TARGET_BYTES)
         return im.size
 
 
@@ -108,7 +108,9 @@ def folders(src_root):
 # Вертикальне фото банера для телефона (media/hero/mobile/, необов'язково): телефону вистачає 1000 px
 # завширшки — менший файл, швидший перший екран.
 MOBILE_HERO_WIDTH = 1000
+MOBILE_HERO_BYTES = 150 * 1024        # банер під затемненням — сильніше стискання непомітне
 WIDTHS = {"hero/mobile": MOBILE_HERO_WIDTH}
+TARGETS = {"hero/mobile": MOBILE_HERO_BYTES}
 
 
 def run(media_root="media", force=False, enhance=False, log=print):
@@ -142,7 +144,7 @@ def run(media_root="media", force=False, enhance=False, log=print):
                 stats["skipped"] += 1
                 continue
             try:
-                process_file(src, dst, thumb, enhance, WIDTHS.get(folder))
+                process_file(src, dst, thumb, enhance, WIDTHS.get(folder), TARGETS.get(folder))
                 done += 1
             except Exception as exc:  # зіпсований файл не зупиняє решту
                 stats["failed"].append((f"{media_root}/{folder}/{name}", str(exc)))
