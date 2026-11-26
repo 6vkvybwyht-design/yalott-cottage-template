@@ -1,0 +1,20 @@
+{% extends "_base.html" %}
+{% from "_icons.html" import icon %}
+{% from "_contacts.html" import contacts_block with context %}
+{#- Окрема сторінка контактів і маршруту: її знаходять за запитами «назва + як доїхати». Є в sitemap.xml. -#}
+{% block body_class %}page-contacts{% endblock %}
+
+{% block content %}
+<section class="section contacts-page">
+  <div class="container">
+    <div class="section-head">
+      <nav class="crumbs" aria-label="Ви тут"><a href="{{ url_for('index') }}">{{ brand.name }}</a> <span>/</span> Контакти</nav>
+      <p class="kicker">{{ brand.full_name }}{% if locality %} · {{ locality }}{% endif %}</p>
+      <h1>Контакти й як доїхати</h1>
+      <p class="muted">{{ contacts.address }}{% if contacts.region %}, {{ contacts.region }}{% endif %}. Телефонуйте, пишіть у месенджери або бронюйте онлайн.</p>
+    </div>
+    {{ contacts_block("h2") }}
+    <p class="contacts-cta"><a class="btn btn-primary btn-lg" href="{{ url_for('index') }}#booking">Перевірити дати й забронювати {{ icon("arrow", 18) }}</a></p>
+  </div>
+</section>
+{% endblock %}

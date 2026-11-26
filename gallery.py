@@ -49,11 +49,15 @@ def list_photos(folder, static_dir=None):
 
 
 def photos(folder, name=""):
-    """[{"src": "media/objects/big/01.webp", "thumb": "media/objects/big/thumb/01.webp", "caption": "..."}]
+    """[{"src": "media/objects/big/01.webp", "thumb": "media/objects/big/thumb/01.webp", "caption": "...", "alt": "..."}]
     — шляхи відносно static/."""
+    import seo
     captions = _captions(os.path.join(STATIC_DIR, folder))
+    # caption — підпис у лайтбоксі (як був); alt — для пошуковиків і читачів екрана:
+    # «Назва — підпис» з captions.txt, «Назва — що на фото» з назви файлу або «Назва — фото N»
     return [{"src": f"{folder}/{n}", "thumb": thumb_for(f"{folder}/{n}"),
-             "caption": captions.get(n) or (f"{name} — фото {i}" if name else f"Фото {i}")}
+             "caption": captions.get(n) or (f"{name} — фото {i}" if name else f"Фото {i}"),
+             "alt": seo.photo_alt(name, n, captions.get(n), i)}
             for i, n in enumerate(list_photos(folder), 1)]
 
 

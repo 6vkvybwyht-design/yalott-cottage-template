@@ -98,6 +98,7 @@ sudo new-site НАЗВА 6vkvybwyht-design/РЕПОЗИТОРІЙ
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | бот сайту від @BotFather і chat id власника (не бот сервера!) |
 | `DEMO_DATA` | `1` — поки показуєте клієнту, `0` — для робочого сайту |
 | `BEHIND_PROXY` | `1` (вже стоїть) |
+| `SITE_URL` | адреса сайту для Google, напр. `https://forest-house.com.ua` (можна вписати після `set-domain`) |
 
 Не заповнили `ADMIN_PASSWORD`? На робочому сайті буде створено випадковий пароль — він є в журналі:
 `sudo site-logs НАЗВА`. Відомого всім пароля `demo2026` на робочому сайті немає.
@@ -114,6 +115,18 @@ sudo -u yalott bash -c 'cd /home/yalott/sites/НАЗВА && .venv/bin/python man
 
 ```bash
 sudo set-domain НАЗВА ДОМЕН
+```
+
+Потім впишіть адресу в `.env` сайту — з неї будуються canonical, `sitemap.xml` і картинки для соцмереж:
+
+```bash
+sudo nano /home/yalott/sites/НАЗВА/.env
+```
+
+Рядок `SITE_URL=https://ДОМЕН` (без «/» у кінці), зберегти й перезапустити:
+
+```bash
+sudo deploy НАЗВА
 ```
 
 ### 4. Захист сайту (обов'язково)
@@ -159,6 +172,22 @@ curl -sI https://ДОМЕН/ | grep -iE 'content-security-policy|strict-transpor
 ```bash
 curl -sI https://ДОМЕН/admin/login | grep -i x-robots-tag
 ```
+
+SEO: `robots.txt` показує на sitemap, у sitemap — адреси з доменом (не `127.0.0.1`), картинка для соцмереж є:
+
+```bash
+curl -s https://ДОМЕН/robots.txt
+```
+
+```bash
+curl -s https://ДОМЕН/sitemap.xml | grep -o '<loc>[^<]*</loc>'
+```
+
+```bash
+curl -sI https://ДОМЕН/og/home.jpg | head -1
+```
+
+Далі — додати сайт у Google Search Console ([README → SEO](README.md#seo-що-працює-саме)).
 
 У браузері:
 
@@ -271,6 +300,7 @@ python3 -c "import secrets; print(secrets.token_hex(32))"
 | `ADMIN_USERNAME`, `ADMIN_PASSWORD` | логін і пароль адмінки (пароль від 8 символів) |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | бот від @BotFather і chat id власника |
 | `DEMO_DATA` | `1` — поки показуєте клієнту, `0` — для робочого сайту |
+| `SITE_URL` | адреса сайту для Google, напр. `https://ІМ'Я.pythonanywhere.com` |
 | `SESSION_COOKIE_SECURE` | порожньо або `1` (cookie входу лише через HTTPS) |
 | `BEHIND_PROXY` | `1` — PythonAnywhere працює через свій вебсервер; без цього ліміти рахуватимуть його IP |
 

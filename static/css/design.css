@@ -260,7 +260,7 @@ html[data-ds] .cal-hint { color: var(--text); }
 
 /* ── 9. Підвал, мобільна панель ── */
 html[data-ds] .site-footer { background: var(--deep); color: var(--muted-deep); padding: var(--space-9) 0 var(--space-6); border-top: 0; }
-html[data-ds] .footer-col h4 { color: var(--muted-deep); letter-spacing: .18em; }
+html[data-ds] .footer-col h4, html[data-ds] .footer-col .footer-title { color: var(--muted-deep); letter-spacing: .18em; }
 html[data-ds] :is(.footer-col a, .footer-bottom a):hover { color: var(--on-deep); }
 html[data-ds] :is(.footer-bottom, .footer-bottom a, .footer-brand p) { color: var(--muted-deep); }
 html[data-ds] .footer-bottom { border-top-color: color-mix(in srgb, var(--on-deep) 16%, transparent); }
@@ -301,3 +301,8 @@ html[data-ds].ds-motion [data-reveal]:not(.is-in) { opacity: 0; transform: trans
   html[data-ds] .hero--ds .hero-bg { translate: none !important; scale: none !important; }
   html[data-ds] { scroll-behavior: auto; }
 }
+
+/* Сторінка /kontakty: розміри й відступи — зі шкали */
+html[data-ds] .contacts-page { padding-top: calc(var(--header-h) + var(--space-7)); }
+html[data-ds] .contacts-page h1 { font-size: var(--fs-3xl); margin-bottom: var(--space-3); }
+html[data-ds] .contacts-cta { margin-top: var(--space-6); }

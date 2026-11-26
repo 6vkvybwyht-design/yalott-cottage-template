@@ -1,12 +1,15 @@
 {% from "_icons.html" import icon %}
 
 {# Фото або заглушка в кольорах теми (якщо в папці static/media/objects/<id>/ ще немає фото). #}
+{#- alt — з назви котеджу (label / o.cover_alt); width/height — справжні розміри фото, srcset — справжні ширини -#}
 {% macro photo(o, src=None, cls="", label=None, eager=False, sizes="(max-width: 760px) calc(100vw - 40px), 50vw") -%}
 {%- if src -%}
 {%- set t = thumb_for(src) -%}
+{%- set size = photo_size(src) -%}
 <img class="photo {{ cls }}" src="{{ media_url(src) }}"
-  {%- if t %} srcset="{{ media_url(t) }} 600w, {{ media_url(src) }} 1600w" sizes="{{ sizes }}"{% endif %}
-  alt="{{ label or o.name }}"{% if not eager %} loading="lazy"{% endif %} decoding="async">
+  {%- if t and photo_width(t) and size[0] %} srcset="{{ media_url(t) }} {{ photo_width(t) }}w, {{ media_url(src) }} {{ size[0] }}w" sizes="{{ sizes }}"{% endif %}
+  {%- if size[0] %} width="{{ size[0] }}" height="{{ size[1] }}"{% endif %}
+  alt="{{ label or o.cover_alt or o.name }}"{% if eager %} fetchpriority="high"{% else %} loading="lazy"{% endif %} decoding="async">
 {%- else -%}
 <div class="ph ph--t{{ o.tone or 1 }} {{ cls }}" role="img" aria-label="{{ label or o.name }} — фото незабаром">
   <span class="ph-icon">{{ icon(o.icon or "house", 40) }}</span>
@@ -95,8 +98,9 @@
 {% macro gallery_grid(items, cls="") -%}
 <div class="gallery {{ cls }}">
   {% for p in items %}
-  <button type="button" class="gallery-item{% if loop.index0 % 7 in [0, 6] %} is-wide{% endif %}" data-full="{{ media_url(p.src) }}" data-caption="{{ p.caption }}">
-    <img src="{{ media_url(p.thumb or p.src) }}" alt="{{ p.caption }}" loading="lazy" decoding="async">
+  <button type="button" class="gallery-item{% if loop.index0 % 7 in [0, 6] %} is-wide{% endif %}" data-full="{{ media_url(p.src) }}" data-caption="{{ p.caption }}" data-alt="{{ p.alt or p.caption }}">
+    {%- set size = photo_size(p.thumb or p.src) %}
+    <img src="{{ media_url(p.thumb or p.src) }}" alt="{{ p.alt or p.caption }}"{% if size[0] %} width="{{ size[0] }}" height="{{ size[1] }}"{% endif %} loading="lazy" decoding="async">
   </button>
   {% endfor %}
 </div>

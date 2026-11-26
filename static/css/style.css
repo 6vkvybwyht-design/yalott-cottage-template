@@ -454,7 +454,7 @@ button.gallery-item { cursor: zoom-in; }
 .socials a { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .18); color: var(--on-dark); transition: background .2s, color .2s; }
 .socials a:hover { background: var(--on-dark); color: var(--dark); }
 .footer-col { display: grid; gap: 8px; align-content: start; }
-.footer-col h4 { margin: 0 0 6px; font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: rgba(255, 255, 255, .45); }
+.footer-col h4, .footer-col .footer-title { line-height: 1.12; margin: 0 0 6px; font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: rgba(255, 255, 255, .45); }
 .footer-col a { text-decoration: none; }
 .footer-col a:hover { color: var(--on-dark); }
 .footer-bottom { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 20px; margin-top: 48px; padding-top: 22px; border-top: 1px solid rgba(255, 255, 255, .1); font-size: 13px; color: rgba(255, 255, 255, .45); }
@@ -640,8 +640,8 @@ html[data-theme="dark"] .brand-name--lg { font-size: 1.4rem; }
 @media (min-width: 760px) { .contacts-grid--solo .contact-list { grid-template-columns: 1fr 1fr; } }
 .map-col { display: grid; gap: 16px; align-content: start; }
 .directions { padding: 22px 24px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
-.directions h3 { display: flex; align-items: center; gap: 10px; font-size: 1.05rem; font-weight: 600; margin-bottom: 10px; }
-.directions h3 .icon { color: var(--accent); }
+.directions .directions-title { display: flex; align-items: center; gap: 10px; font-size: 1.05rem; font-weight: 600; margin-bottom: 10px; }
+.directions .directions-title .icon { color: var(--accent); }
 .directions p { margin: 0 0 .7em; font-size: 15px; color: var(--text-2); }
 .directions p:last-child { margin: 0; }
 .rule div { min-width: 0; }
@@ -788,7 +788,7 @@ html[data-theme="midnight"] .review-author b { font-family: var(--font-ui); font
 /* шапка й підвал */
 html[data-theme="midnight"] .site-footer { border-top: 0; position: relative; }
 html[data-theme="midnight"] .site-footer::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--gold-line); opacity: .7; }
-html[data-theme="midnight"] .footer-col h4 { font-family: var(--font-ui); font-weight: 400; letter-spacing: .24em; color: var(--accent-on-dark); }
+html[data-theme="midnight"] .footer-col h4, html[data-theme="midnight"] .footer-col .footer-title { font-family: var(--font-ui); font-weight: 400; letter-spacing: .24em; color: var(--accent-on-dark); }
 html[data-theme="midnight"] .footer-logo { height: 96px; }
 html[data-theme="midnight"] .mobile-cta { border-radius: 4px; }
 html[data-theme="midnight"] .mobile-cta strong { font-family: var(--font-head); font-weight: 400; }
@@ -898,5 +898,14 @@ html[data-theme="cabin"] .site-footer { position: relative; border-top: 0; margi
 html[data-theme="cabin"] .site-footer::before { content: ""; position: absolute; left: 0; right: 0; top: -13px; height: 14px; background: var(--dark);
   -webkit-mask: conic-gradient(from 135deg at 50% 0, #000 90deg, transparent 0) 50% 100% / 28px 14px repeat-x;
           mask: conic-gradient(from 135deg at 50% 0, #000 90deg, transparent 0) 50% 100% / 28px 14px repeat-x; }
-html[data-theme="cabin"] .footer-col h4 { color: var(--accent-on-dark); letter-spacing: .14em; }
+html[data-theme="cabin"] .footer-col h4, html[data-theme="cabin"] .footer-col .footer-title { color: var(--accent-on-dark); letter-spacing: .14em; }
 html[data-theme="cabin"] .mobile-cta strong { font-family: var(--font-head); }
+
+/* SEO: розміри фото в розмітці (width/height) — браузер резервує місце, сторінка не «стрибає».
+   :where() — нульова вага, тож правила класів (.photo { height: 100% } тощо) лишаються головними. */
+:where(img[width][height]) { height: auto; }
+
+/* Сторінка /kontakty: один h1, далі той самий блок контактів, що й на головній */
+.contacts-page { padding-top: calc(var(--header-h) + 40px); }
+.contacts-page h1 { font-size: clamp(2.2rem, 5vw, 3.4rem); margin-bottom: .3em; }
+.contacts-cta { margin: 32px 0 0; }

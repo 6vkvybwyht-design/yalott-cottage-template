@@ -71,7 +71,7 @@
   function showPhoto(i) {
     current = (i + lbItems.length) % lbItems.length;
     var item = lbItems[current], img = $("img", lightbox);
-    img.src = item.dataset.full; img.alt = item.dataset.caption;
+    img.src = item.dataset.full; img.alt = item.dataset.alt || item.dataset.caption;
     $("figcaption", lightbox).textContent = item.dataset.caption;
   }
   function closeLightbox() { lightbox.hidden = true; document.body.style.overflow = ""; }
