@@ -6,17 +6,32 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>{% block title %}{{ site.seo.title }}{% endblock %}</title>
-  <meta name="description" content="{% block description %}{{ site.seo.description }}{% endblock %}">
+  {#- SEO: title, description, canonical, Open Graph і JSON-LD формує seo.py з конфігу (app.page_info) -#}
+  <title>{% block title %}{{ page.title if page else site.seo.title }}{% endblock %}</title>
+  <meta name="description" content="{% block description %}{{ page.description if page else site.seo.description }}{% endblock %}">
   <meta name="csrf-token" content="{{ csrf_token }}">
   {% if demo %}<meta name="robots" content="{{ demo.noindex }}">
   <meta name="author" content="Yalott Studio">
-  <meta name="generator" content="Yalott Studio · yalott-demo:{{ demo.id }}">{% endif %}
+  <meta name="generator" content="Yalott Studio · yalott-demo:{{ demo.id }}">
+  {% elif page and page.noindex %}<meta name="robots" content="noindex, follow">{% endif %}
+  {% if page %}<link rel="canonical" href="{{ page.canonical }}">
+  <meta property="og:url" content="{{ page.canonical }}">{% endif %}
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="{{ brand.full_name }}">
+  <meta property="og:locale" content="{{ 'uk_UA' if site.seo.lang == 'uk' else site.seo.lang }}">
   <meta property="og:title" content="{{ self.title() }}">
   <meta property="og:description" content="{{ self.description() }}">
-  {% if og_image %}<meta property="og:image" content="{{ media_url(og_image, external=True) }}">{% endif %}
-  <meta property="og:type" content="website">
-  <meta property="og:locale" content="{{ 'uk_UA' if site.seo.lang == 'uk' else site.seo.lang }}">
+  {% if page and page.og_image %}<meta property="og:image" content="{{ page.og_image }}">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="{{ page.og_alt }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="{{ page.og_image }}">{% else %}<meta name="twitter:card" content="summary">{% endif %}
+  <meta name="twitter:title" content="{{ self.title() }}">
+  <meta name="twitter:description" content="{{ self.description() }}">
+  {% if page %}{% for item in page.json_ld %}<script type="application/ld+json">{{ item|tojson }}</script>
+  {% endfor %}{% endif %}
   {% if favicon %}<link rel="icon" href="{{ S }}{{ favicon }}">
   <link rel="apple-touch-icon" href="{{ S }}{{ favicon }}">
   {% else %}<link rel="icon" href="{{ url_for('favicon') }}" type="image/svg+xml">{% endif %}
@@ -46,9 +61,9 @@
     <a class="brand" href="{{ home }}" aria-label="{{ brand.full_name }} — на головну">
       {% if ds and logo_light and logo and logo != logo_light %}
       {#- світла шапка після прокрутки — темний логотип; прозора над фото — світлий -#}
-      <img class="brand-logo brand-logo--on-photo" src="{{ S }}{{ logo_light }}" alt="{{ brand.name }}" height="46">
-      <img class="brand-logo brand-logo--on-page" src="{{ S }}{{ logo }}" alt="" aria-hidden="true" height="46" loading="lazy">
-      {% elif logo_light %}<img class="brand-logo" src="{{ S }}{{ logo_light }}" alt="{{ brand.name }}" height="46">
+      <img class="brand-logo brand-logo--on-photo" src="{{ S }}{{ logo_light }}" alt="{{ brand.name }}"{% if logo_width(logo_light, 46) %} width="{{ logo_width(logo_light, 46) }}"{% endif %} height="46">
+      <img class="brand-logo brand-logo--on-page" src="{{ S }}{{ logo }}" alt="" aria-hidden="true"{% if logo_width(logo, 46) %} width="{{ logo_width(logo, 46) }}"{% endif %} height="46" loading="lazy">
+      {% elif logo_light %}<img class="brand-logo" src="{{ S }}{{ logo_light }}" alt="{{ brand.name }}"{% if logo_width(logo_light, 46) %} width="{{ logo_width(logo_light, 46) }}"{% endif %} height="46">
       {% else %}<span class="brand-name">{{ brand.name }}</span>{% endif %}
     </a>
     <nav class="nav" id="nav" aria-label="Головне меню">
@@ -59,9 +74,9 @@
       {% else %}<a href="{{ home }}#objects">Проживання</a>{% endif %}
       {% if sections.extras and site.extras %}<a href="{{ home }}#extras">Послуги</a>{% endif %}
       {% if sections.prices %}<a href="{{ home }}#prices">Ціни</a>{% endif %}
-      <a href="{{ home }}#contacts">Контакти</a>
+      <a href="{{ url_for('contacts_page') }}"{% if request.endpoint == 'contacts_page' %} aria-current="page"{% endif %}>Контакти</a>
       <a class="nav-phone" href="tel:{{ contacts.phone_href }}">{{ icon("phone", 15) }} {{ contacts.phone }}</a>
-      <a class="btn btn-primary btn-sm nav-cta" href="#booking">Забронювати</a>
+      <a class="btn btn-primary btn-sm nav-cta" href="{{ booking_href or '#booking' }}">Забронювати</a>
     </nav>
     <a class="header-call" href="tel:{{ contacts.phone_href }}" aria-label="Подзвонити {{ contacts.phone }}">{{ icon("phone", 18) }}</a>
     <button class="nav-toggle" type="button" aria-controls="nav" aria-expanded="false" aria-label="Відкрити меню">{{ icon("menu", 24) }}</button>
@@ -76,7 +91,7 @@
   <div class="container footer-inner">
     <div class="footer-brand">
       <a class="brand" href="{{ home }}" aria-label="{{ brand.full_name }}">
-        {% if logo_light %}<img class="footer-logo" src="{{ S }}{{ logo_light }}" alt="{{ brand.name }}" height="72">
+        {% if logo_light %}<img class="footer-logo" src="{{ S }}{{ logo_light }}" alt="{{ brand.name }}"{% if logo_width(logo_light, 72) %} width="{{ logo_width(logo_light, 72) }}"{% endif %} height="72">
         {% else %}<span class="brand-name brand-name--lg">{{ brand.name }}</span>{% endif %}
       </a>
       <p>{{ brand.full_name }}{% if brand.tagline %}. {{ brand.tagline }}{% endif %}. Бронювання напряму — без комісій.</p>
@@ -86,13 +101,15 @@
         {% if contacts.tiktok %}<a href="https://www.tiktok.com/@{{ contacts.tiktok }}" target="_blank" rel="noopener" aria-label="TikTok @{{ contacts.tiktok }}">{{ icon("tiktok", 20) }}</a>{% endif %}
       </div>
     </div>
+    {#- підписи колонок — не заголовки: після h2 сторінки не має бути «стрибка» до h4 -#}
     <div class="footer-col">
-      <h4>Проживання</h4>
+      <p class="footer-title">Проживання</p>
       {% for o in nav_objects %}<a href="{{ url_for('object_page', slug=o.slug) }}">{{ o.name }}</a>{% endfor %}
     </div>
     <div class="footer-col">
-      <h4>Контакти</h4>
+      <p class="footer-title">Контакти</p>
       <a href="tel:{{ contacts.phone_href }}">{{ contacts.phone }}</a>
+      <a href="{{ url_for('contacts_page') }}">Як доїхати</a>
       {% if contacts.instagram %}<a href="https://instagram.com/{{ contacts.instagram }}" target="_blank" rel="noopener">Instagram @{{ contacts.instagram }}</a>{% endif %}
       {% if contacts.email %}<a href="mailto:{{ contacts.email }}">{{ contacts.email }}</a>{% endif %}
       <span>{{ contacts.address }}{% if contacts.region %}, {{ contacts.region }}{% endif %}</span>
@@ -106,7 +123,7 @@
 
 <div class="mobile-cta">
   <div>{% block mobile_price %}{% endblock %}</div>
-  <a class="btn btn-primary" href="#booking">Забронювати</a>
+  <a class="btn btn-primary" href="{{ booking_href or '#booking' }}">Забронювати</a>
 </div>
 
 <div class="lightbox" id="lightbox" hidden>

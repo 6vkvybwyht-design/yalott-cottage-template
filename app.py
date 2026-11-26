@@ -25,6 +25,7 @@ import gallery
 import notifications
 import pricing as P
 import security
+import seo
 import site_config
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -264,6 +265,13 @@ def create_app(test_config=None):
           if brand["theme"] in design.PALETTES else None)
 
     demo_on = demo.enabled(site)
+    # Адреса сайту для canonical, sitemap і Open Graph — SITE_URL з .env (https://домен, без «/» у кінці).
+    # Без неї (чи в демо) — адреса з запиту: за Caddy це справжній домен і https (ProxyFix).
+    site_url = os.environ.get("SITE_URL", "").strip().rstrip("/")
+    if site_url and not re.fullmatch(r"https?://[A-Za-z0-9.-]+(?::\d+)?", site_url):
+        log.warning("SITE_URL=%r — не схоже на https://домен; беру адресу із запиту.", site_url)
+        site_url = ""
+    app.config["SITE_URL"] = "" if demo_on else site_url
     demo_id = demo.fingerprint(site, key) if demo_on else ""
     demo_hosts = ",".join(demo.host_hash(h) for h in demo.allowed_hosts(site)) if demo_on else ""
 
@@ -290,11 +298,23 @@ def create_app(test_config=None):
                 "nav_objects": site.objects, "logo": logo, "logo_light": logo_light, "favicon": favicon,
                 "theme_css": bool(overrides), "V": asset_version, "demo": info, "ds": ds}
 
-    app.jinja_env.globals.update(thumb_for=gallery.thumb_for, photo_width=gallery.width, plural=site_config.plural,
+    def photo_size(src):
+        """(ширина, висота) фото — для width/height у <img>, щоб сторінка не «стрибала» під час завантаження."""
+        return seo.image_size(os.path.join(BASE_DIR, "static"), src)
+
+    def logo_width(src, height):
+        """Ширина логотипа за висоти height — пропорційно до справжнього файлу (0, якщо розмір невідомий)."""
+        w, h = photo_size(src)
+        return round(w * height / h) if w and h else 0
+
+    app.jinja_env.globals.update(thumb_for=gallery.thumb_for, photo_width=gallery.width, photo_size=photo_size,
+                                 logo_width=logo_width,
+                                 locality=seo.locality(site), plural=site_config.plural,
                                  guests_gen=site_config.guests_gen, media_url=media_url)
     app.extensions["fh_today"] = lambda: today_iso()  # київська дата для адмінки
     app.extensions["theme_css"] = overrides
     app.extensions["demo_id"] = demo_id
+    app.extensions["media_url"] = media_url
     register_routes(app)
     if demo_on:
         register_demo(app, site, key)
@@ -358,6 +378,8 @@ def object_cards(db, site):
                     weekend_price=p["weekendPrice"], weekend_min_nights=p["weekendMinNights"],
                     guests_text=p["guestsText"], photos=gallery.photos(o["folder"], o["name"]),
                     cover=gallery.cover(o))
+        place = seo.locality(site)
+        card["cover_alt"] = f"{o['name']} — {site.brand['name']}" + (f", {place}" if place else "")
         card["facts"] = object_facts(card)
         cards.append(card)
     return cards
@@ -370,8 +392,33 @@ def common_page_data(db, site, cards):
             "min_nights_max": max((max(c["min_nights"], c["weekend_min_nights"] or 0) for c in cards), default=1)}
 
 
+def hero_for(site, cards):
+    """Фото банера: media/hero/ або обкладинка головного (першого) об'єкта."""
+    featured = next((c for c in cards if c["featured"]), None)
+    return gallery.first(site.media("hero")) or (featured or (cards[0] if cards else {})).get("cover")
+
+
+def base_url(app):
+    """https://домен сайту без «/» у кінці: SITE_URL з .env або адреса з запиту."""
+    return app.config.get("SITE_URL") or request.url_root.rstrip("/")
+
+
+def page_info(app, title, description, path, og=None, og_alt="", json_ld=(), noindex=False):
+    """Усе для <head>: title, description, canonical, Open Graph, JSON-LD (див. seo.py і _base.html)."""
+    base = base_url(app)
+    return {"title": title, "description": description, "canonical": base + path, "site_url": base,
+            "og_image": base + url_for("og_image", name=og) if og else "", "og_alt": og_alt,
+            "json_ld": [x for x in json_ld if x], "noindex": noindex}
+
+
+def absolute_images(app, srcs):
+    media_url, base = app.extensions["media_url"], base_url(app)
+    return [base + media_url(s) for s in srcs if s]
+
+
 def register_routes(app):
     site = app.extensions["site"]
+    static_dir = os.path.join(BASE_DIR, "static")
 
     @app.get("/")
     def index():
@@ -380,14 +427,34 @@ def register_routes(app):
         if not cards:
             abort(404)
         featured = next((c for c in cards if c["featured"]), None)
-        hero = gallery.first(site.media("hero")) or (featured or cards[0])["cover"]
+        hero = hero_for(site, cards)
         hero_mobile = gallery.first(site.media("hero") + "/mobile")   # вертикальне фото для телефона (необов'язково)
-        og = site.seo["og_image"] if gallery.exists(site.seo["og_image"]) else hero
+        price_from = min(c["price_from"] for c in cards)
+        title, description = seo.home_meta(site, price_from)
+        images = absolute_images(app, [hero] + [c["cover"] for c in cards])
+        page = page_info(app, title, description, "/", og="home" if og_source(site, cards, "home") else None,
+                         og_alt=f"{site.brand['full_name']} — {seo.locality(site)}".strip(" —"),
+                         json_ld=[seo.lodging(site, base_url(app), cards, images)])
         return render_template("index.html", objects=cards, featured=featured, selected=None, hero=hero,
-                               hero_mobile=hero_mobile,
-                               og_image=og, price_from=min(c["price_from"] for c in cards),
-                               periods=db_.periods(db), gallery_photos=gallery.photos(site.media("gallery")),
+                               hero_mobile=hero_mobile, page=page, price_from=price_from,
+                               periods=db_.periods(db), gallery_photos=gallery.photos(site.media("gallery"),
+                                                                                       site.brand["name"]),
                                **common_page_data(db, site, cards))
+
+    @app.get(f"/{seo.CONTACTS_SLUG}")
+    def contacts_page():
+        db = db_.get_db()
+        cards = object_cards(db, site)
+        title, description = seo.contacts_meta(site)
+        base = base_url(app)
+        images = absolute_images(app, [hero_for(site, cards)] + [c["cover"] for c in cards])
+        page = page_info(app, title, description, f"/{seo.CONTACTS_SLUG}",
+                         og=seo.CONTACTS_SLUG if og_source(site, cards, seo.CONTACTS_SLUG) else None,
+                         og_alt=f"{site.brand['full_name']} — як доїхати",
+                         json_ld=[seo.lodging(site, base, cards, images),
+                                  seo.breadcrumbs(base, site.brand["name"], [(f"/{seo.CONTACTS_SLUG}", "Контакти")])])
+        return render_template("contacts.html", objects=cards, selected=None, page=page,
+                               booking_href=url_for("index") + "#booking")
 
     @app.get("/<slug>")
     def object_page(slug):
@@ -400,10 +467,54 @@ def register_routes(app):
         obj = next((c for c in cards if c["slug"] == slug), None)
         if obj is None:
             abort(404)
-        return render_template("object.html", obj=obj, objects=cards, selected=obj,
-                               og_image=obj["cover"] or gallery.first(site.media("hero")),
+        title, description = seo.object_meta(site, obj)
+        base = base_url(app)
+        images = absolute_images(app, [obj["cover"]] + [p["src"] for p in obj["photos"]])
+        page = page_info(app, title, description, f"/{slug}", og=slug if og_source(site, cards, slug) else None,
+                         og_alt=obj["cover_alt"],
+                         json_ld=[seo.accommodation(site, base, obj, list(dict.fromkeys(images))),
+                                  seo.breadcrumbs(base, site.brand["name"], [(f"/{slug}", obj["name"])])])
+        return render_template("object.html", obj=obj, objects=cards, selected=obj, page=page,
                                periods=[p for p in db_.periods(db) if p["objectId"] in (None, obj["id"])],
                                **common_page_data(db, site, cards))
+
+    def og_source(site_, cards, name):
+        """Фото для картинки соцмереж: своє (seo.og_image) / обкладинка котеджу / банер."""
+        if name == "home" and gallery.exists(site_.seo["og_image"]):
+            return site_.seo["og_image"]
+        if name in site_.object_by_key:
+            card = next((c for c in cards if c["slug"] == name), None)
+            if card and card["cover"]:
+                return card["cover"]
+        return hero_for(site_, cards)
+
+    @app.get("/og/<name>.jpg")
+    def og_image(name):
+        """Картинка для Viber, Telegram, Facebook: JPEG 1200×630 з фото сторінки (кеш у instance/og-cache)."""
+        if name not in ("home", seo.CONTACTS_SLUG) and name not in site.object_by_key:
+            abort(404)
+        src = og_source(site, object_cards(db_.get_db(), site), name)
+        if not src:
+            abort(404)
+        focus = site.brand.get("hero_focus", "") if src == hero_for(site, object_cards(db_.get_db(), site)) else ""
+        path = seo.og_image(os.path.join(static_dir, src), os.path.join(app.instance_path, "og-cache"), focus)
+        return send_file(path, mimetype="image/jpeg", max_age=86400, conditional=True)
+
+    @app.get("/sitemap.xml")
+    def sitemap():
+        if demo.enabled(site):          # демо не індексується
+            abort(404)
+        cards = object_cards(db_.get_db(), site)
+        base, config_file = base_url(app), site.path
+        hero = hero_for(site, cards)
+        pages = [{"loc": f"{base}/", "lastmod": seo.lastmod(config_file, os.path.join(static_dir, site.media("hero"))),
+                  "images": absolute_images(app, [hero] + [c["cover"] for c in cards]
+                                            + [p["src"] for p in gallery.photos(site.media("gallery"))])}]
+        pages += [{"loc": f"{base}/{c['slug']}", "lastmod": seo.lastmod(config_file, os.path.join(static_dir, c["folder"])),
+                   "images": absolute_images(app, list(dict.fromkeys([c["cover"]] + [p["src"] for p in c["photos"]])))}
+                  for c in cards]
+        pages.append({"loc": f"{base}/{seo.CONTACTS_SLUG}", "lastmod": seo.lastmod(config_file), "images": []})
+        return Response(seo.sitemap_xml(pages), mimetype="application/xml")
 
     @app.get("/favicon.svg")
     def favicon():
@@ -419,9 +530,8 @@ def register_routes(app):
 
     @app.get("/robots.txt")
     def robots():
-        if demo.enabled(site):
-            return Response("User-agent: *\nDisallow: /\n", mimetype="text/plain")
-        return Response("User-agent: *\nDisallow: /admin/\nDisallow: /api/\n", mimetype="text/plain")
+        # звичайний сайт — індексувати все, крім адмінки й API, і ось карта сайту; демо — нічого
+        return Response(seo.robots_txt(base_url(app), closed=demo.enabled(site)), mimetype="text/plain")
 
     @app.get("/api/availability")
     def availability():

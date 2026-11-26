@@ -245,6 +245,18 @@ def cmd_check(args):
         bad("SESSION_COOKIE_SECURE=0 — cookie входу піде й незахищеним каналом. На сервері приберіть рядок або поставте 1")
     if env("BEHIND_PROXY").lower() in ("0", "false", "no", "off", "ні"):
         note("BEHIND_PROXY=0 — за Caddy чи nginx поставте 1, інакше ліміти входу й заявок рахуватимуть IP вебсервера")
+    site_url = env("SITE_URL").rstrip("/")
+    if cfg and cfg.demo["enabled"]:
+        pass                                   # демо не індексується — адреса для Google не потрібна
+    elif not site_url:
+        note("SITE_URL не задано — canonical і sitemap.xml візьмуть адресу із запиту. "
+             "Впишіть домен у .env, напр. SITE_URL=https://forest-house.com.ua")
+    elif not re.fullmatch(r"https?://[A-Za-z0-9.-]+(?::\d+)?", site_url):
+        bad(f"SITE_URL={site_url} — потрібна лише адреса сайту, напр. https://forest-house.com.ua (без шляху)")
+    elif not site_url.startswith("https://"):
+        note(f"SITE_URL={site_url} — без https. Google віддає перевагу https://")
+    else:
+        ok(f"SITE_URL: {site_url} (sitemap: {site_url}/sitemap.xml)")
 
     if cfg:
         print("\nФото")

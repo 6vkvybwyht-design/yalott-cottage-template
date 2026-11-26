@@ -46,7 +46,7 @@ EXTRA_UNITS = {
     "person_night": "за людину за ніч",
 }
 SECTIONS = ("about", "extras", "gallery", "prices", "reviews", "faq", "nearby", "map")
-RESERVED_IDS = {"admin", "api", "static", "media", "favicon", "robots", "sitemap"}
+RESERVED_IDS = {"admin", "api", "static", "media", "favicon", "robots", "sitemap", "kontakty", "contacts", "og", "demo"}
 SECRET_WORDS = ("password", "token", "secret", "chat_id", "пароль", "токен")
 
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
@@ -237,7 +237,7 @@ def validate(raw, check_photos=True, static_dir=None, media="media"):
     _find_secrets(raw, "", c)
 
     known_top = {"demo", "brand", "contacts", "objects", "extras", "seasons", "rules", "sections", "about", "perks",
-                 "gallery", "reviews", "faq", "nearby", "seo", "studio", "integrations"}
+                 "gallery", "reviews", "faq", "nearby", "seo", "studio", "integrations", "rating"}
     for key in raw:
         if key not in known_top:
             c.warn(str(key), "невідомий розділ — сайт його не використовує (можливо, помилка в назві)")
@@ -480,6 +480,20 @@ def validate(raw, check_photos=True, static_dir=None, media="media"):
             continue
         c.text(r, "text", f"reviews №{i}", required=True)
         c.text(r, "author", f"reviews №{i}", required=True)
+        c.integer(r, "rating", f"reviews №{i}", low=1, high=5)
+        if r.get("date") not in (None, "") and parse_date(r.get("date")) is None:
+            c.err(f"reviews №{i} → date", f"дата у форматі РРРР-ММ-ДД, напр. 2026-10-14 (вказано «{r.get('date')}»)")
+        if re.search(r"тут текст відгуку|ім'я гостя|ім’я гостя|імʼя гостя", f"{r.get('text')} {r.get('author')}", re.I):
+            c.warn(f"reviews №{i}", "відгук-заглушка — замініть справжнім. У розмітку для Google він не потрапляє")
+
+    # --- рейтинг (необов'язково): лише справжній, напр. з Google чи Booking ---
+    rating = c.section(raw, "rating", dict)
+    if rating:
+        value = rating.get("value")
+        if not isinstance(value, (int, float)) or isinstance(value, bool) or not 1 <= value <= 5:
+            c.err("rating → value", f"оцінка від 1 до 5, напр. 4.9 (вказано «{value}»)")
+        c.integer(rating, "count", "rating", required=True, low=1, high=1_000_000)
+        c.text(rating, "source", "rating", max_len=60)
     for i, q in enumerate(c.section(raw, "faq", list), 1):
         if not isinstance(q, dict):
             c.err(f"faq №{i}", "кожне питання — поля q (питання) та a (відповідь)")
@@ -526,8 +540,15 @@ def validate(raw, check_photos=True, static_dir=None, media="media"):
 
     # --- seo ---
     seo = c.section(raw, "seo", dict)
-    c.text(seo, "title", "seo", max_len=90)
-    c.text(seo, "description", "seo", max_len=300)
+    title = c.text(seo, "title", "seo", max_len=90)
+    if len(title) > 60:
+        c.warn("seo → title", f"{len(title)} символів — Google показує до 60. Сайт візьме згенерований заголовок "
+                              f"(назва + тип житла + населений пункт); скоротіть, якщо хочете свій")
+    description = c.text(seo, "description", "seo", max_len=300)
+    if len(description) > 160:
+        c.warn("seo → description", f"{len(description)} символів — у пошуку видно до 160, решту обріже")
+    c.text(seo, "landmark", "seo", max_len=40)
+    c.text(raw.get("contacts") or {}, "locality", "contacts", max_len=60)
     lang = seo.get("lang")
     if lang not in (None, "") and not re.match(r"^[a-z]{2}(-[A-Z]{2})?$", str(lang)):
         c.err("seo → lang", f"код мови з двох літер, напр. uk (вказано «{lang}»)")
@@ -593,6 +614,7 @@ class SiteConfig:
             "viber": _digits(g(c, "viber")), "whatsapp": _digits(g(c, "whatsapp")).lstrip("+"),
             "instagram": g(c, "instagram"), "telegram": g(c, "telegram"), "tiktok": g(c, "tiktok"),
             "email": g(c, "email"), "address": g(c, "address"), "region": g(c, "region"),
+            "locality": g(c, "locality"),
             "coordinates": coords, "directions": _paragraphs(g(c, "directions")),
         }
         query = f"{coords[0]},{coords[1]}" if coords else f"{self.contacts['address']} {self.contacts['region']}"
@@ -661,7 +683,12 @@ class SiteConfig:
         gal = raw.get("gallery") or {}
         self.gallery = {"title": g(gal, "title", "Територія та атмосфера"), "text": g(gal, "text")}
         self.perks = [{"icon": g(p, "icon", "check"), "title": p["title"], "text": g(p, "text")} for p in raw.get("perks") or []]
-        self.reviews = [{"text": x["text"], "author": x["author"], "meta": g(x, "meta")} for x in raw.get("reviews") or []]
+        self.reviews = [{"text": x["text"], "author": x["author"], "meta": g(x, "meta"), "rating": x.get("rating"),
+                         "date": str(x.get("date") or "")} for x in raw.get("reviews") or []]
+        rating = raw.get("rating") or {}
+        # Рейтинг — лише якщо в конфігу є справжні дані; нічого не вигадуємо.
+        self.rating = ({"value": rating["value"], "count": rating["count"], "source": g(rating, "source")}
+                       if rating.get("value") and rating.get("count") else None)
         self.faq = [{"q": x["q"], "a": x["a"]} for x in raw.get("faq") or []]
         self.nearby = [{"icon": g(n, "icon", "compass"), "title": n["title"], "text": g(n, "text"),
                         "distance": g(n, "distance")} for n in raw.get("nearby") or []]
@@ -670,6 +697,9 @@ class SiteConfig:
             "title": g(s, "title") or f"{self.brand['full_name']} — {self.brand['tagline']}".rstrip(" —"),
             "description": g(s, "description") or self.brand["description"] or self.brand["tagline"],
             "og_image": g(s, "og_image"), "lang": g(s, "lang", "uk"),
+            # явно вписані в конфіг (без запасних значень) — для заголовків сторінок (seo.py)
+            "title_explicit": g(s, "title"), "description_explicit": g(s, "description"),
+            "landmark": g(s, "landmark"),
         }
         studio = raw.get("studio") or {}
         self.studio = {"name": g(studio, "name", "Yalott Studio"),

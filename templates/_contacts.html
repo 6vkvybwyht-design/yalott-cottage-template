@@ -1,0 +1,30 @@
+{% from "_icons.html" import icon %}
+{#- Контакти, карта й «як доїхати». Головна (розділ #contacts) і сторінка /kontakty.
+    heading — рівень заголовка «Як доїхати»: h3 під h2 головної, h2 під h1 сторінки контактів. -#}
+{% macro contacts_block(heading="h3") -%}
+<div class="contacts-grid{% if not sections.map %} contacts-grid--solo{% endif %}">
+  <div class="contact-list">
+    <a class="contact-item" href="tel:{{ contacts.phone_href }}"><span class="t-icon">{{ icon("phone", 20) }}</span><span><small>Телефон</small>{{ contacts.phone }}</span></a>
+    {% if contacts.viber %}<a class="contact-item" href="viber://chat?number={{ contacts.viber|urlencode }}"><span class="t-icon">{{ icon("message", 20) }}</span><span><small>Viber</small>Написати у Viber</span></a>{% endif %}
+    {% if contacts.whatsapp %}<a class="contact-item" href="https://wa.me/{{ contacts.whatsapp }}" target="_blank" rel="noopener"><span class="t-icon">{{ icon("whatsapp", 20) }}</span><span><small>WhatsApp</small>Написати у WhatsApp</span></a>{% endif %}
+    {% if contacts.telegram %}<a class="contact-item" href="https://t.me/{{ contacts.telegram }}" target="_blank" rel="noopener"><span class="t-icon">{{ icon("telegram", 20) }}</span><span><small>Telegram</small>@{{ contacts.telegram }}</span></a>{% endif %}
+    {% if contacts.instagram %}<a class="contact-item" href="https://instagram.com/{{ contacts.instagram }}" target="_blank" rel="noopener"><span class="t-icon">{{ icon("instagram", 20) }}</span><span><small>Instagram</small>@{{ contacts.instagram }}</span></a>{% endif %}
+    {% if contacts.tiktok %}<a class="contact-item" href="https://www.tiktok.com/@{{ contacts.tiktok }}" target="_blank" rel="noopener"><span class="t-icon">{{ icon("tiktok", 20) }}</span><span><small>TikTok</small>@{{ contacts.tiktok }}</span></a>{% endif %}
+    {% if contacts.email %}<a class="contact-item" href="mailto:{{ contacts.email }}"><span class="t-icon">{{ icon("mail", 20) }}</span><span><small>Пошта</small>{{ contacts.email }}</span></a>{% endif %}
+    <a class="contact-item" href="https://www.google.com/maps/search/?api=1&query={{ contacts.map_query|urlencode }}" target="_blank" rel="noopener"><span class="t-icon">{{ icon("pin", 20) }}</span><span><small>Адреса</small>{{ contacts.address }}{% if contacts.region %}<em>{{ contacts.region }}</em>{% endif %}</span></a>
+  </div>
+  {% if sections.map %}
+  <div class="map-col">
+    <div class="map-wrap">
+      <iframe title="Карта: {{ brand.name }}" src="https://www.google.com/maps?q={{ contacts.map_query|urlencode }}&z=13&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+    </div>
+    {% if contacts.directions %}
+    <div class="directions">
+      <{{ heading }} class="directions-title">{{ icon("route", 20) }} Як доїхати</{{ heading }}>
+      {% for p in contacts.directions %}<p>{{ p }}</p>{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{%- endmacro %}

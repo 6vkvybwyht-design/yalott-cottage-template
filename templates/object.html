@@ -1,8 +1,7 @@
 {% extends "_base.html" %}
 {% from "_icons.html" import icon %}
 {% from "_macros.html" import photo, object_card, price_rows, gallery_grid %}
-{% block title %}{{ obj.name }} · {{ brand.full_name }}{% endblock %}
-{% block description %}{{ obj.intro or site.seo.description }}{% endblock %}
+{#- title, description, canonical, JSON-LD (Accommodation + BreadcrumbList) — page із seo.py -#}
 {% block body_class %}page-object{% endblock %}
 {% block mobile_price %}<small>від</small> <strong>{{ obj.price_from|uah }}</strong> <small>/ ніч</small>{% endblock %}
 
@@ -11,7 +10,7 @@
 <section class="obj-hero">
   <div class="container obj-hero-grid">
     <div class="obj-hero-text">
-      <p class="crumbs"><a href="{{ url_for('index') }}">{{ brand.name }}</a> <span>/</span> {{ obj.name }}</p>
+      <nav class="crumbs" aria-label="Ви тут"><a href="{{ url_for('index') }}">{{ brand.name }}</a> <span>/</span> {{ obj.name }}</nav>
       {% if obj.tagline %}<p class="kicker">{{ icon(obj.icon, 16) }} {{ obj.tagline }}</p>{% endif %}
       <h1>{{ obj.name }}</h1>
       {% if obj.intro %}<p class="hero-lead">{{ obj.intro }}</p>{% endif %}

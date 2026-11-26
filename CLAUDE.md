@@ -96,6 +96,17 @@
 розміри зі шкали, «зменшити рух», старі теми без змін). Порівняння тем — `python tools/design_review.py`
 (скріншоти 375 і 1440 px, Lighthouse на мобільному, продуктивність ≥ 85) → `docs/design/`.
 
+### 8. SEO — з конфігу, рахує `seo.py`
+
+- Title (≤ 60), description (≤ 160), canonical, Open Graph, JSON-LD будує `seo.py` + `app.page_info()` з конфігу.
+  Нова публічна сторінка — передати їй `page=page_info(...)` з **унікальними** title/description і додати її в `sitemap()`.
+- **Рівно один `<h1>`** на сторінці, далі `h2` → `h3` без стрибків. Підписи в підвалі — не заголовки.
+- Рейтинг і відгуки в розмітку — **лише справжні** (`rating:`, відгуки з `rating`), нічого не вигадувати.
+- Фото: `alt` (з назви котеджу), `width`/`height` через `photo_size()`, `loading="lazy"` для всього, крім першого екрана.
+- Адреса сайту — `SITE_URL` у `.env`. Демо: `robots.txt` — `Disallow: /`, sitemap немає.
+
+**Перевірка:** `tests/test_seo.py`; Lighthouse → SEO ≥ 95.
+
 ## Команди
 
 ```bash

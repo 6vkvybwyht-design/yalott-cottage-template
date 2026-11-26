@@ -3,18 +3,13 @@
 {% from "_macros.html" import photo, object_card, price_rows, gallery_grid, extra_price %}
 {% block body_class %}page-home{% endblock %}
 {% block mobile_price %}<small>від</small> <strong>{{ price_from|uah }}</strong> <small>/ ніч</small>{% endblock %}
-{% block head %}
-<script type="application/ld+json">{{ {
-  "@context": "https://schema.org", "@type": "LodgingBusiness", "name": brand.full_name,
-  "description": site.seo.description, "telephone": contacts.phone_href,
-  "address": {"@type": "PostalAddress", "streetAddress": contacts.address, "addressRegion": contacts.region, "addressCountry": "UA"},
-  "priceRange": "від " ~ price_from ~ " грн"
-}|tojson }}</script>
-{% endblock %}
+{#- schema.org (LodgingBusiness) — у _base.html з page.json_ld (seo.py) -#}
 
 {% block content %}
 {# ---------- Банер: фото з media/hero/ або обкладинка головного об'єкта; без фото — фон теми ---------- #}
 {%- set hero_thumb = thumb_for(hero) -%}
+{%- set hero_size = photo_size(hero) if hero else (0, 0) -%}
+{%- set hero_alt = brand.full_name ~ (" — " ~ locality if locality else "") -%}
 {% if ds %}
 {#- Дизайн-система: за 3 секунди зрозуміло, що це і куди тиснути — фото, назва, одна фраза, ціна «від», одна кнопка. -#}
 <section class="hero hero--ds{% if not hero %} hero--plain{% endif %}">
@@ -29,7 +24,8 @@
     {% if hero_mobile %}<source media="(max-width: 760px)" srcset="{{ srcset(hero_mobile) or media_url(hero_mobile) }}" sizes="100vw">{% endif %}
     <img class="hero-bg" src="{{ media_url(hero) }}"
       {%- if srcset(hero) %} srcset="{{ srcset(hero) }}" sizes="100vw"{% endif %}
-      alt="{{ brand.full_name }}" fetchpriority="high" decoding="async">
+      {%- if hero_size[0] %} width="{{ hero_size[0] }}" height="{{ hero_size[1] }}"{% endif %}
+      alt="{{ hero_alt }}" fetchpriority="high" decoding="async">
   </picture>
   {% endif %}
   <div class="hero-shade" aria-hidden="true"></div>
@@ -51,8 +47,9 @@
 <section class="hero{% if not hero %} hero--plain{% endif %}">
   {% if hero %}
   <img class="hero-bg" src="{{ media_url(hero) }}"
-    {%- if hero_thumb %} srcset="{{ media_url(hero_thumb) }} 600w, {{ media_url(hero) }} 1600w" sizes="100vw"{% endif %}
-    alt="{{ brand.full_name }}" fetchpriority="high" decoding="async">
+    {%- if hero_thumb and photo_width(hero_thumb) and hero_size[0] %} srcset="{{ media_url(hero_thumb) }} {{ photo_width(hero_thumb) }}w, {{ media_url(hero) }} {{ hero_size[0] }}w" sizes="100vw"{% endif %}
+    {%- if hero_size[0] %} width="{{ hero_size[0] }}" height="{{ hero_size[1] }}"{% endif %}
+    alt="{{ hero_alt }}" fetchpriority="high" decoding="async">
   {% endif %}
   <div class="hero-shade" aria-hidden="true"></div>
   <div class="container hero-inner">
@@ -123,7 +120,7 @@
       {% for e in extras %}
       <article class="service reveal">
         <div class="service-media">
-          {% if e.photo_src %}<img class="photo" src="{{ media_url(thumb_for(e.photo_src) or e.photo_src) }}" alt="{{ e.name }}" loading="lazy" decoding="async">
+          {% if e.photo_src %}{% set esrc = thumb_for(e.photo_src) or e.photo_src %}{% set esize = photo_size(esrc) %}<img class="photo" src="{{ media_url(esrc) }}" alt="{{ e.name }} — {{ brand.name }}"{% if esize[0] %} width="{{ esize[0] }}" height="{{ esize[1] }}"{% endif %} loading="lazy" decoding="async">
           {% else %}<div class="ph ph--t{{ loop.index0 % 3 + 1 }} ph--sm" role="img" aria-label="{{ e.name }}"><span class="ph-icon">{{ icon(e.icon, 34) }}</span></div>{% endif %}
         </div>
         <div class="service-body">
@@ -185,12 +182,16 @@
     <div class="section-head">
       <p class="kicker">Відгуки</p>
       <h2>Що кажуть гості</h2>
+      {#- загальна оцінка — лише справжня, з розділу rating: конфігу (її ж бачить Google у розмітці) -#}
+      {% if site.rating %}<p class="muted review-summary">Оцінка {{ site.rating.value }} з 5 · {{ site.rating.count }} {{ plural(site.rating.count, "відгук", "відгуки", "відгуків") }}{% if site.rating.source %} · {{ site.rating.source }}{% endif %}</p>{% endif %}
     </div>
     <div class="reviews">
       {% for r in site.reviews %}
       <article class="review reveal">
         <span class="review-quote">{{ icon("quote", 26) }}</span>
-        <div class="review-stars" role="img" aria-label="5 зірок">{% for _ in range(5) %}{{ icon("star", 15) }}{% endfor %}</div>
+        {#- оцінку озвучуємо лише справжню (rating відгуку); без неї зірки — декор, як і були -#}
+        {% if r.rating %}<div class="review-stars" role="img" aria-label="Оцінка {{ r.rating }} з 5">{% for _ in range(r.rating) %}{{ icon("star", 15) }}{% endfor %}</div>
+        {% else %}<div class="review-stars" aria-hidden="true">{% for _ in range(5) %}{{ icon("star", 15) }}{% endfor %}</div>{% endif %}
         <p class="review-text">{{ r.text }}</p>
         <p class="review-author"><b>{{ r.author }}</b>{% if r.meta %}<small>{{ r.meta }}</small>{% endif %}</p>
       </article>
@@ -238,38 +239,15 @@
 </section>
 {% endif %}
 
-{# ---------- Контакти ---------- #}
+{# ---------- Контакти (той самий блок — на окремій сторінці /kontakty) ---------- #}
+{% from "_contacts.html" import contacts_block with context %}
 <section class="section" id="contacts">
   <div class="container">
     <div class="section-head">
       <p class="kicker">Контакти</p>
       <h2>Телефонуйте або пишіть</h2>
     </div>
-    <div class="contacts-grid{% if not sections.map %} contacts-grid--solo{% endif %}">
-      <div class="contact-list">
-        <a class="contact-item" href="tel:{{ contacts.phone_href }}"><span class="t-icon">{{ icon("phone", 20) }}</span><span><small>Телефон</small>{{ contacts.phone }}</span></a>
-        {% if contacts.viber %}<a class="contact-item" href="viber://chat?number={{ contacts.viber|urlencode }}"><span class="t-icon">{{ icon("message", 20) }}</span><span><small>Viber</small>Написати у Viber</span></a>{% endif %}
-        {% if contacts.whatsapp %}<a class="contact-item" href="https://wa.me/{{ contacts.whatsapp }}" target="_blank" rel="noopener"><span class="t-icon">{{ icon("whatsapp", 20) }}</span><span><small>WhatsApp</small>Написати у WhatsApp</span></a>{% endif %}
-        {% if contacts.telegram %}<a class="contact-item" href="https://t.me/{{ contacts.telegram }}" target="_blank" rel="noopener"><span class="t-icon">{{ icon("telegram", 20) }}</span><span><small>Telegram</small>@{{ contacts.telegram }}</span></a>{% endif %}
-        {% if contacts.instagram %}<a class="contact-item" href="https://instagram.com/{{ contacts.instagram }}" target="_blank" rel="noopener"><span class="t-icon">{{ icon("instagram", 20) }}</span><span><small>Instagram</small>@{{ contacts.instagram }}</span></a>{% endif %}
-        {% if contacts.tiktok %}<a class="contact-item" href="https://www.tiktok.com/@{{ contacts.tiktok }}" target="_blank" rel="noopener"><span class="t-icon">{{ icon("tiktok", 20) }}</span><span><small>TikTok</small>@{{ contacts.tiktok }}</span></a>{% endif %}
-        {% if contacts.email %}<a class="contact-item" href="mailto:{{ contacts.email }}"><span class="t-icon">{{ icon("mail", 20) }}</span><span><small>Пошта</small>{{ contacts.email }}</span></a>{% endif %}
-        <a class="contact-item" href="https://www.google.com/maps/search/?api=1&query={{ contacts.map_query|urlencode }}" target="_blank" rel="noopener"><span class="t-icon">{{ icon("pin", 20) }}</span><span><small>Адреса</small>{{ contacts.address }}{% if contacts.region %}<em>{{ contacts.region }}</em>{% endif %}</span></a>
-      </div>
-      {% if sections.map %}
-      <div class="map-col">
-        <div class="map-wrap">
-          <iframe title="Карта: {{ brand.name }}" src="https://www.google.com/maps?q={{ contacts.map_query|urlencode }}&z=13&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
-        </div>
-        {% if contacts.directions %}
-        <div class="directions">
-          <h3>{{ icon("route", 20) }} Як доїхати</h3>
-          {% for p in contacts.directions %}<p>{{ p }}</p>{% endfor %}
-        </div>
-        {% endif %}
-      </div>
-      {% endif %}
-    </div>
+    {{ contacts_block("h3") }}
   </div>
 </section>
 {% endblock %}
