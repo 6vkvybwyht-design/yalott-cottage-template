@@ -313,6 +313,8 @@ p { margin: 0 0 1em; }
 .check a { color: var(--text); }
 .hp { position: absolute; left: -9999px; }
 .form-error { margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--danger-soft); color: var(--danger); font-size: 14px; }
+.min-stay-note { display: inline-flex; gap: 8px; align-items: center; margin: 14px 0 0; padding: 8px 16px; border: 1px solid var(--line); border-radius: 999px; font-size: 14px; color: var(--text-2); }
+.min-stay-note[hidden] { display: none; }
 .form-note { display: flex; gap: 8px; align-items: center; justify-content: center; margin: 0; font-size: 13px; color: var(--text-3); text-align: center; }
 
 /* календар */

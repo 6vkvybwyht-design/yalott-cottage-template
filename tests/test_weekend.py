@@ -110,7 +110,8 @@ def test_config_validation(tmp_path):
 def test_booking_uses_weekend_price_and_minimum(weekend_site):
     s = weekend_site
     r = s.book("small", FRIDAY, after(FRIDAY, 1))
-    assert r.status_code == 400 and "ночей: 2" in r.get_json()["error"] and "суботи" in r.get_json()["error"]
+    assert r.status_code == 400 and r.get_json()["error"].startswith(
+        "Якщо серед ночей є п'ятниця чи субота, мінімальний термін бронювання — 2 ночі. Ви обрали 1 ніч")
     assert s.total("small", FRIDAY, after(FRIDAY, 2)) == 2 * 7000
     assert s.total("small", "2026-11-10", "2026-11-11") == 6000            # будні — як раніше
     assert s.total("big", "2026-11-20", "2026-11-21") == 8500              # в іншого об'єкта вихідних немає

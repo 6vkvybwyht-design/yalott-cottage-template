@@ -231,7 +231,7 @@ def test_min_nights(ramshill):
     r = s.admin("object-prices", id=s.ids["big"], price=8500, tiers=[], minNights=3)
     assert r.status_code == 200, r.get_json()
     r = s.book("big", "2026-11-16", "2026-11-18")
-    assert r.status_code == 400 and "мінімальне бронювання" in r.get_json()["error"]
+    assert r.status_code == 400 and r.get_json()["error"].startswith("Мінімальний термін бронювання — 3 ночі. Ви обрали 2 ночі")
     assert s.book("big", "2026-11-16", "2026-11-19").status_code == 201
     assert s.book("small", "2026-11-16", "2026-11-17").status_code == 201          # інший об'єкт — свій мінімум
 

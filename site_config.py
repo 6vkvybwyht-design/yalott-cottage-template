@@ -236,7 +236,7 @@ def validate(raw, check_photos=True, static_dir=None, media="media"):
     icons = known_icons()
     _find_secrets(raw, "", c)
 
-    known_top = {"demo", "brand", "contacts", "objects", "extras", "seasons", "rules", "sections", "about", "perks",
+    known_top = {"demo", "brand", "contacts", "objects", "extras", "seasons", "min_stay", "rules", "sections", "about", "perks",
                  "gallery", "reviews", "faq", "nearby", "seo", "studio", "integrations", "rating"}
     for key in raw:
         if key not in known_top:
@@ -465,6 +465,25 @@ def validate(raw, check_photos=True, static_dir=None, media="media"):
                                      f"({other[1]} – {other[2]}). Змініть дати так, щоб вони не накладались")
                 spans.append((scope, start, end, s.get("name") or f"№{i}"))
 
+    # --- min_stay: періоди з особливим мінімумом ночей ---
+    for i, m in enumerate(c.section(raw, "min_stay", list), 1):
+        if not isinstance(m, dict):
+            c.err(f"min_stay №{i}", "кожен період — це набір полів (name, start, end, min_nights, object)")
+            continue
+        where = f"min_stay №{i}" + (f" «{m.get('name')}»" if m.get("name") else "")
+        c.text(m, "name", where, max_len=40)
+        start, end = parse_date(m.get("start")), parse_date(m.get("end"))
+        for key, val in (("start", start), ("end", end)):
+            if m.get(key) in (None, ""):
+                c.err(f"{where} → {key}", "немає дати")
+            elif val is None:
+                c.err(f"{where} → {key}", f"неправильна дата «{m.get(key)}». Формат: РРРР-ММ-ДД, напр. 2026-12-31")
+        if start and end and end < start:
+            c.err(where, f"остання ніч ({end}) раніше за першу ({start})")
+        c.integer(m, "min_nights", where, required=True, low=1, high=60)
+        if m.get("object") not in (None, "") and str(m["object"]) not in valid_ids:
+            c.err(f"{where} → object", f"немає об'єкта з id «{m['object']}». Є: {', '.join(sorted(valid_ids)) or '—'}")
+
     # --- sections ---
     sections = c.section(raw, "sections", dict)
     for key, v in sections.items():
@@ -675,6 +694,14 @@ class SiteConfig:
             else:
                 self.seasons.append({"object": None, "name": s_["name"], "start": start, "end": end,
                                      "price": None if s_.get("on_request") else s_["price"]})
+
+        # Періоди з особливим мінімумом ночей → рядки таблиці min_stay_rules (object — ключ об'єкта або None).
+        self.min_stay = []
+        for m in raw.get("min_stay") or []:
+            self.min_stay.append({"object": str(m["object"]) if m.get("object") not in (None, "") else None,
+                                  "name": str(m.get("name") or "").strip(),
+                                  "start": parse_date(m["start"]).isoformat(), "end": parse_date(m["end"]).isoformat(),
+                                  "min_nights": int(m["min_nights"])})
 
         sec = raw.get("sections") or {}
         self.sections = {k: bool(sec.get(k, True)) for k in SECTIONS}

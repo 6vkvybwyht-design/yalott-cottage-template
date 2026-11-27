@@ -142,8 +142,17 @@
   function limitFor(iso) { return P.checkoutLimit(busySet(), iso, data.lastDate); }
   /** Мінімум ночей від дати заїзду (з урахуванням мінімуму на вихідні). Без дати — звичайний мінімум. */
   function minNights(from) { return from ? P.minNightsFrom(objectId(), from) : obj().minNights || 1; }
-  /** Чи досить ночей саме для цього бронювання (на вихідні мінімум може бути більший). */
-  function longEnough(a, b) { return V.nightsBetween(a, b).length >= P.minNightsFor(objectId(), a, b); }
+  /** Чи досить ночей саме для цього бронювання (на вихідні й свята мінімум може бути більший). */
+  function longEnough(a, b) { return P.stayOk(objectId(), a, b); }
+  function minStayText(a, b) { return P.minStayMessage(P.minStay(objectId(), a, b), V.nightsBetween(a, b).length); }
+  /** Плашка біля форми: «Мінімальний термін бронювання — 2 ночі, на Новий рік — 5 ночей.» для обраного об'єкта. */
+  function updateMinStayNote() {
+    var el = $("#min-stay-note");
+    if (!el) return;
+    var text = P.minStayNote(objectId(), data.today);
+    el.textContent = text;
+    el.parentNode.hidden = !text;
+  }
 
   function fillGuests() {
     var o = obj(), cur = +guestsEl.value || 2, html = "";
@@ -157,6 +166,7 @@
     var rin = $("#rule-in"), rout = $("#rule-out");
     if (rin) rin.textContent = o.checkIn;
     if (rout) rout.textContent = o.checkOut;
+    updateMinStayNote();
   }
 
   // Ціна послуги у формі залежить від кількості гостей і ночей.
@@ -200,7 +210,7 @@
 
     for (var d = 1; d <= days; d++) {
       var iso = V.toISO(new Date(Date.UTC(y, m, d)));
-      var cls = ["cal-day"], disabled = false, b = isBusy(iso), price = P.dayPrice(id, iso);
+      var cls = ["cal-day"], disabled = false, b = isBusy(iso), price = P.dayPrice(id, iso), note = "";
       if (price == null) cls.push("on-request");
       if (iso === data.today) cls.push("today");
 
@@ -210,7 +220,10 @@
         cls.push(b ? "busy" : "free");
         if (picking && iso > state.checkIn) {
           if (iso > limit) { cls.push("out-of-range"); disabled = true; }
-          else if (iso < minOut || !longEnough(state.checkIn, iso)) { cls.push("too-short"); disabled = true; }
+          else if (iso < minOut || !longEnough(state.checkIn, iso)) {   // замало ночей (напр. Новий рік — від 5)
+            var need = P.minNightsFor(id, state.checkIn, iso);
+            cls.push("too-short"); disabled = true; note = ", виїзд недоступний: мінімум " + need + " " + nightsWord(need);
+          }
           else cls.push("checkout-ok");
         } else if (b) { disabled = true; }
       }
@@ -218,9 +231,9 @@
       if (state.checkOut === iso) cls.push("end");
       if (state.checkIn && state.checkOut && iso > state.checkIn && iso < state.checkOut) cls.push("in-range");
 
-      var label = d + " " + MONTHS_GEN[m] + (b ? ", зайнято" : ", вільно") + ", " + (price == null ? "ціна за домовленістю" : price + " грн");
+      var label = d + " " + MONTHS_GEN[m] + (b ? ", зайнято" : ", вільно") + ", " + (price == null ? "ціна за домовленістю" : price + " грн") + note;
       html += '<button type="button" class="' + cls.join(" ") + '" data-iso="' + iso + '"' + (disabled ? " disabled" : "") +
-        ' aria-label="' + label + '"><span class="d">' + d + '</span><span class="p">' + (price == null ? "дог." : V.shortPrice(price)) + "</span></button>";
+        ' aria-label="' + label + '"' + (note ? ' title="' + note.slice(2) + '"' : "") + '><span class="d">' + d + '</span><span class="p">' + (price == null ? "дог." : V.shortPrice(price)) + "</span></button>";
     }
     return html + "</div></div>";
   }
@@ -232,6 +245,7 @@
     } else {
       var limit = limitFor(state.checkIn);
       if (iso <= limit && longEnough(state.checkIn, iso)) state.checkOut = iso;
+      else if (iso <= limit) showError(minStayText(state.checkIn, iso));
       else if (canCheckIn(iso)) { state.checkIn = iso; state.checkOut = null; }
     }
     sync();
@@ -260,11 +274,12 @@
     if (!state.checkIn) setHint("Оберіть дату заїзду.");
     else if (!state.checkOut) {
       var lim = limitFor(state.checkIn);
-      var need = minNights(state.checkIn);
-      if (!lim || lim < V.addDays(state.checkIn, need)) {
+      var need = minNights(state.checkIn), first = lim ? P.earliestCheckout(objectId(), state.checkIn, lim) : null;
+      if (!first) {
         setHint("Від " + human(state.checkIn) + " замало вільних ночей (мінімум — " + need + "). Оберіть іншу дату заїзду.", true);
       } else {
-        setHint("Заїзд " + human(state.checkIn) + ". Тепер оберіть дату виїзду (мінімум " + need + " " + nightsWord(need) + ").");
+        var n = V.nightsBetween(state.checkIn, first).length;
+        setHint("Заїзд " + human(state.checkIn) + ". Тепер оберіть дату виїзду: найраніше — " + human(first) + " (" + n + " " + nightsWord(n) + ").");
       }
     }
     var q = currentQuote();
@@ -309,9 +324,8 @@
     if (isValidIso(a) && canCheckIn(a)) {
       state.checkIn = a;
       var lim = limitFor(a);
-      var need = isValidIso(b) && b > a ? P.minNightsFor(objectId(), a, b) : minNights(a);
       if (isValidIso(b) && b > a && longEnough(a, b) && b <= lim) state.checkOut = b;
-      else if (isValidIso(b) && b > a && !longEnough(a, b)) showError("Мінімальне бронювання — " + need + " " + nightsWord(need) + ".");
+      else if (isValidIso(b) && b > a && !longEnough(a, b)) showError(minStayText(a, b));
       else if (isValidIso(b) && b > a) showError("У вибраному періоді вже є зайняті ночі. Оберіть іншу дату виїзду.");
       jumpTo(a);
     } else if (isValidIso(a)) {
@@ -383,10 +397,7 @@
     clearError();
     var q = currentQuote(), msg = null;
     if (!state.checkIn || !state.checkOut) msg = "Оберіть дати заїзду та виїзду в календарі.";
-    else if (!longEnough(state.checkIn, state.checkOut)) {
-      var need = P.minNightsFor(objectId(), state.checkIn, state.checkOut);
-      msg = "Мінімальне бронювання — " + need + " " + nightsWord(need) + (need > minNights() ? " (на вихідні)" : "") + ".";
-    }
+    else if (!longEnough(state.checkIn, state.checkOut)) msg = minStayText(state.checkIn, state.checkOut);
     else if (form.name.value.trim().length < 2) msg = "Вкажіть ваше ім'я.";
     else if (form.phone.value.replace(/\D/g, "").length < 9) msg = "Вкажіть коректний номер телефону.";
     else if (!rulesEl.checked) msg = "Підтвердьте, що ознайомилися з умовами бронювання.";
@@ -431,7 +442,7 @@
   function reload() {
     return window.FHApi.availability().then(function (json) {
       data = json;
-      P = V.make(json.config, json.objects, json.periods, json.extras);
+      P = V.make(json.config, json.objects, json.periods, json.extras, json.minStay);
       busy = {};
       Object.keys(json.busy).forEach(function (id) {
         busy[+id] = {};

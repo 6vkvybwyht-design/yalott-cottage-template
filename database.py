@@ -248,6 +248,24 @@ def seed(conn, cfg, reset=False):
             conn.execute("INSERT INTO seed_log (kind, key) VALUES ('season', ?)", (key,))
             price = P.format_uah(s["price"]) if s["price"] else "за домовленістю"
             report["added"].append(f"{title} — {price}")
+
+        # Періоди з особливим мінімумом ночей — як сезони: кожен заливається один раз.
+        if reset:
+            conn.execute("DELETE FROM min_stay_rules")
+            conn.execute("DELETE FROM seed_log WHERE kind = 'min_stay'")
+        done = {r["key"] for r in conn.execute("SELECT key FROM seed_log WHERE kind = 'min_stay'")}
+        for m in cfg.min_stay:
+            key = _season_key(m)
+            title = (f"мінімум {m['min_nights']} {P.nights_word(m['min_nights'])} «{m['name'] or m['start']}» "
+                     f"{m['start']} – {m['end']}" + (f" ({m['object']})" if m["object"] else ""))
+            if key in done:
+                report["kept"].append(title)
+                continue
+            object_id = ids.get(m["object"]) if m["object"] else None
+            conn.execute("INSERT INTO min_stay_rules (object_id, name, start_date, end_date, min_nights) "
+                         "VALUES (?, ?, ?, ?, ?)", (object_id, m["name"], m["start"], m["end"], m["min_nights"]))
+            conn.execute("INSERT INTO seed_log (kind, key) VALUES ('min_stay', ?)", (key,))
+            report["added"].append(title)
         conn.execute("COMMIT")
     except Exception:
         conn.execute("ROLLBACK")
@@ -528,6 +546,45 @@ def delete_period(db, period_id):
     db.execute("DELETE FROM periods WHERE id = ?", (period_id,))
 
 
+# ---------- Мінімальний термін бронювання ----------
+
+def min_stay_rule_to_dict(r):
+    return {"id": r["id"], "objectId": r["object_id"], "name": r["name"], "start": r["start_date"],
+            "end": r["end_date"], "minNights": r["min_nights"]}
+
+
+def min_stay_rules(db):
+    return [min_stay_rule_to_dict(r) for r in
+            db.execute("SELECT * FROM min_stay_rules ORDER BY start_date, end_date, object_id, id")]
+
+
+def save_min_stay_rule(db, data, rule_id=None):
+    """Додає або змінює період з особливим мінімумом. Періоди можуть перетинатися: діє більший мінімум."""
+    if data["objectId"] is not None:
+        get_object(db, data["objectId"])
+    values = (data["objectId"], data["name"], data["start"], data["end"], data["minNights"])
+    if rule_id:
+        cur = db.execute("UPDATE min_stay_rules SET object_id = ?, name = ?, start_date = ?, end_date = ?, "
+                         "min_nights = ? WHERE id = ?", (*values, rule_id))
+        if cur.rowcount == 0:
+            raise BookingError("Період не знайдено", 404)
+        return rule_id
+    return db.execute("INSERT INTO min_stay_rules (object_id, name, start_date, end_date, min_nights) "
+                      "VALUES (?, ?, ?, ?, ?)", values).lastrowid
+
+
+def delete_min_stay_rule(db, rule_id):
+    db.execute("DELETE FROM min_stay_rules WHERE id = ?", (rule_id,))
+
+
+def check_min_stay(db, obj, check_in, check_out):
+    """Сервер сам перевіряє мінімальний термін (звичайний, на вихідні, особливі періоди) — з поясненням гостю."""
+    stay = P.min_stay(obj, min_stay_rules(db), check_in, check_out)
+    nights = len(P.nights_between(check_in, check_out))
+    if nights < stay["required"]:
+        raise BookingError(P.min_stay_message(stay, nights))
+
+
 # ---------- Зайнятість ----------
 
 def _code(prefix):
@@ -586,6 +643,7 @@ def create_booking(db, data):
     db.execute("BEGIN IMMEDIATE")
     try:
         obj = get_object(db, data["objectId"])
+        check_min_stay(db, obj, data["checkIn"], data["checkOut"])
         if not P.is_free(occupancy(db).get(obj["id"], {}), obj["units"], data["checkIn"], data["checkOut"]):
             raise BookingError(f"На жаль, «{obj['name']}» на ці дати вже зайнято. Оберіть інші дати.", 409)
         code = _insert_booking(db, site(), obj, periods(db), extras_list(db), data)
@@ -686,6 +744,7 @@ def admin_data(db):
         "busy": busy_json(db),
         "objects": {str(k): v for k, v in objs.items()},
         "periods": periods(db),
+        "minStay": min_stay_rules(db),
         "extras": extras_list(db),
         "config": site().public_rules(),
     }
