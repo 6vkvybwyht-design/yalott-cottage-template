@@ -28,14 +28,14 @@
   function reload() {
     return API.data().then(function (d) {
       data = d;
-      P = V.make(d.config, d.objects, d.periods, d.extras);
+      P = V.make(d.config, d.objects, d.periods, d.extras, d.minStay);
       IDS = Object.keys(d.objects).map(Number);
       if (!view) { var t = V.toDate(d.today); view = { y: t.getUTCFullYear(), m: t.getUTCMonth() }; }
       render();
     }).catch(function (ex) { toast(ex.message); });
   }
   setInterval(function () { if (data && !document.hidden && !editing()) reload(); }, 60000);
-  function editing() { return document.activeElement && document.activeElement.closest('#priceObjs, #extrasBox, #periodsBox'); }
+  function editing() { return document.activeElement && document.activeElement.closest('#priceObjs, #extrasBox, #periodsBox, #minStayBox'); }
   $('#refresh').addEventListener('click', function () { reload().then(function () { toast('Оновлено'); }); });
   $('#tgTest').addEventListener('click', function () {
     var btn = this; btn.disabled = true;
@@ -285,6 +285,25 @@
       '<div class="season-btns"><button class="mini' + (p ? ' mini--dark' : '') + '">' + (p ? 'Зберегти' : 'Додати сезон') + '</button>' +
       (p ? '<button class="mini" type="button" data-del="' + p.id + '">Видалити</button>' : '') + '</div></form>';
   }
+  function ddmm(iso) { return iso.slice(8, 10) + '.' + iso.slice(5, 7); }
+  function minStayRow(r) {
+    var hint = 'Новий період: напр. Новий рік — перша й остання ніч 31.12, мінімум 5.';
+    if (r) {
+      var after = V.addDays(r.end, 1);
+      hint = 'Діє, якщо бронювання включає ' + (r.start === r.end ? 'ніч ' + ddmm(r.start) + '→' + ddmm(after)
+        : 'хоч одну ніч з ' + ddmm(r.start) + ' до ' + ddmm(after)) + '. На сайті: «' + (r.name ? 'на ' + esc(r.name)
+        : 'з ' + ddmm(r.start) + ' до ' + ddmm(after)) + ' — ' + r.minNights + ' ' + nightsWord(r.minNights) + '».';
+    }
+    return '<form class="period-row" ' + (r ? 'data-minstay="' + r.id + '"' : 'data-minstay-new') + '>' +
+      '<label class="field"><span>Назва (на сайті «на …»)</span><input name="name" maxlength="40" value="' + esc(r ? r.name : '') + '" placeholder="Новий рік"></label>' +
+      '<label class="field"><span>Об\'єкт</span>' + objSelect(r ? r.objectId : null) + '</label>' +
+      '<label class="field"><span>Перша ніч</span><input name="start" type="date" value="' + (r ? r.start : '') + '" required></label>' +
+      '<label class="field"><span>Остання ніч</span><input name="end" type="date" value="' + (r ? r.end : '') + '" required></label>' +
+      '<label class="field"><span>Мінімум ночей</span><input name="minNights" type="number" inputmode="numeric" min="1" max="60" step="1" value="' + (r ? r.minNights : '') + '" required></label>' +
+      '<span class="period-req minstay-hint muted small">' + hint + '</span>' +
+      '<div class="season-btns"><button class="mini' + (r ? ' mini--dark' : '') + '">' + (r ? 'Зберегти' : 'Додати період') + '</button>' +
+      (r ? '<button class="mini" type="button" data-minstay-del="' + r.id + '">Видалити</button>' : '') + '</div></form>';
+  }
   function renderPrices() {
     if (editing()) return; // не перебиваємо редагування
     $('#priceObjs').innerHTML = IDS.map(function (id) {
@@ -317,6 +336,9 @@
     $('#periodsBox').innerHTML = '<div class="abox__head"><h2>Сезони</h2></div>' +
       '<p class="muted small">На ці ночі діє вказана ціна замість звичайної (доплата за гостей додається як завжди). З галочкою «Ціна за домовленістю» сайт замість суми показує «Уточніть ціну у власника» — заявку гість усе одно може надіслати.</p>' +
       '<div class="seasons-table">' + data.periods.map(periodRow).join('') + periodRow(null) + '</div>';
+    $('#minStayBox').innerHTML = '<div class="abox__head"><h2>Мінімальний термін на свята</h2><span class="muted small">діє на нові заявки; наявні бронювання не змінюються</span></div>' +
+      '<p class="muted small">Звичайний мінімум — поле «Мінімум ночей» у цінах кожного об\'єкта вище. Тут — періоди з особливим мінімумом: якщо бронювання включає хоч одну ніч періоду, потрібно щонайменше вказану кількість ночей (якщо періоди перетинаються — діє більший). Дати — ночі, як у сезонів: «перша й остання ніч 31.12» — це ніч з 31 грудня на 1 січня. Сайт пише біля форми, напр.: «Мінімальний термін бронювання — 2 ночі, на Новий рік — 5 ночей».</p>' +
+      '<div class="seasons-table">' + (data.minStay || []).map(minStayRow).join('') + minStayRow(null) + '</div>';
     var C = data.config;
     $('#fixedRules').innerHTML = '<h3 class="asub">Що змінюється не тут</h3><ul>' +
       '<li>Передоплата ' + C.prepaymentPercent + '%, час заїзду й виїзду, правила скасування — у файлі config/site.yaml.</li>' +
@@ -375,6 +397,22 @@
     var b = e.target.closest('[data-del]');
     if (!b || !confirm('Видалити сезон? На ці дати діятиме звичайна ціна.')) return;
     API.deletePeriod(+b.getAttribute('data-del')).then(function () { toast('Сезон видалено'); b.blur(); return reload(); })
+      .catch(function (ex) { toast(ex.message); });
+  });
+
+  var mbox = $('#minStayBox');
+  mbox.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var f = e.target, body = { name: f.name.value, objectId: f.objectId.value, start: f.start.value, end: f.end.value,
+      minNights: f.minNights.value };
+    if (f.hasAttribute('data-minstay')) body.id = f.getAttribute('data-minstay');
+    API.saveMinStay(body).then(function () { return done(body.id ? 'Період збережено' : 'Період додано'); })
+      .catch(function (ex) { toast(ex.message); });
+  });
+  mbox.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-minstay-del]');
+    if (!b || !confirm('Видалити період? На ці дати діятиме звичайний мінімум ночей.')) return;
+    API.deleteMinStay(+b.getAttribute('data-minstay-del')).then(function () { toast('Період видалено'); b.blur(); return reload(); })
       .catch(function (ex) { toast(ex.message); });
   });
 

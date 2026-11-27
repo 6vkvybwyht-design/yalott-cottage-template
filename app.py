@@ -137,10 +137,7 @@ def validate_booking(body, objects, extra_keys, today):
         raise db_.BookingError("Дата заїзду вже минула")
     if check_out > (date.fromisoformat(today) + timedelta(days=BOOKING_HORIZON_DAYS)).isoformat():
         raise db_.BookingError("Бронювання відкрите лише на рік уперед")
-    need = P.min_nights_for(obj, check_in, check_out)
-    if len(P.nights_between(check_in, check_out)) < need:
-        weekend = " (якщо є ніч п'ятниці чи суботи)" if need > obj["minNights"] else ""
-        raise db_.BookingError(f"«{obj['name']}»: мінімальне бронювання — ночей: {need}{weekend}")
+    # Мінімальний термін (звичайний, на вихідні, особливі періоди з бази) перевіряє db_.create_booking.
 
     guests = body.get("guests")
     guests = guests if isinstance(guests, int) and not isinstance(guests, bool) else _int(guests if isinstance(guests, str) else None)
@@ -388,7 +385,22 @@ def object_cards(db, site):
 def common_page_data(db, site, cards):
     extras = [dict(e, photo_src=gallery.find(site.media("extras"), e["photo"])) for e in db_.extras_list(db)]
     times = {(c["check_in"], c["check_out"]) for c in cards}
-    return {"extras": extras, "same_times": len(times) <= 1,
+    rules, today = db_.min_stay_rules(db), today_iso()
+    live = db_.objects(db)
+    # Мінімальний термін біля форми: «Мінімальний термін бронювання — 2 ночі, на Новий рік — 5 ночей.»
+    notes = {c["id"]: P.min_stay_note(live[c["id"]], rules, today) for c in cards}
+    holidays = []   # для блоку «Умови»: особливі періоди, що ще не минули
+    for c in cards:
+        for r in P.applicable_rules(live[c["id"]], rules, today):
+            if r["objectId"] is None and any(h["rule"] is r for h in holidays):
+                continue
+            phrase, after = P.rule_phrase(r), (date.fromisoformat(r["end"]) + timedelta(days=1)).isoformat()
+            when = (f"ніч {P._ddmm(r['start'])}→{P._ddmm(after)}" if r["start"] == r["end"]
+                    else f"хоч одну ніч з {P._ddmm(r['start'])} до {P._ddmm(after)}")
+            holidays.append({"rule": r, "object": None if r["objectId"] is None else c["name"],
+                             "text": f"{phrase[0].upper()}{phrase[1:]} — від {r['minNights']} "
+                                     f"{P.nights_word(r['minNights'])}, якщо бронювання включає {when}."})
+    return {"extras": extras, "same_times": len(times) <= 1, "min_stay_notes": notes, "min_stay_holidays": holidays,
             "min_nights_max": max((max(c["min_nights"], c["weekend_min_nights"] or 0) for c in cards), default=1)}
 
 
@@ -539,7 +551,7 @@ def register_routes(app):
         today = today_iso()
         last = (date.fromisoformat(today) + timedelta(days=BOOKING_HORIZON_DAYS)).isoformat()
         return jsonify(busy=db_.busy_json(db), objects=db_.objects_json(db), periods=db_.periods(db),
-                       extras=db_.extras_list(db), config=site.public_rules(), today=today, lastDate=last)
+                       minStay=db_.min_stay_rules(db), extras=db_.extras_list(db), config=site.public_rules(), today=today, lastDate=last)
 
     @app.post("/api/bookings")
     def book():

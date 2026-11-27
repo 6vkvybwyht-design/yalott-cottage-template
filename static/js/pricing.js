@@ -1,6 +1,7 @@
 /*
  * Розрахунок ціни в браузері — точна копія pricing.py:
- *   разом = Σ по ночах (ціна сезону, вихідних або базова) + ночі × гості понад базу × доплата + послуги.
+ *   разом = Σ по ночах (ціна сезону, вихідних або базова) + ночі × гості понад базу × доплата + послуги;
+ *   мінімальний термін бронювання — як pricing.min_stay (звичайний, на вихідні, особливі періоди).
  * Сервер однаково перераховує суму сам, тож це лише попередній розрахунок для гостя.
  */
 (function () {
@@ -12,14 +13,23 @@
   function nightsBetween(a, b) { var out = []; for (var d = a; d < b; d = addDays(d, 1)) out.push(d); return out; }
   /** Ніч п'ятниці чи суботи (ніч = дата, з якої вона починається). */
   function isWeekend(iso) { var w = toDate(iso).getUTCDay(); return w === 5 || w === 6; }
+  function nightsWord(n) {
+    n = Math.abs(n);
+    if (n % 10 === 1 && n % 100 !== 11) return 'ніч';
+    if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)) return 'ночі';
+    return 'ночей';
+  }
+  function ddmm(iso) { return iso.slice(8, 10) + '.' + iso.slice(5, 7); }
 
   /**
    * objects = {"1": {id, price, tiers: [{nights, price}], baseGuests, maxGuests, extraGuestPrice, minNights, units, ...}, ...}
    * periods = [{objectId|null, name, start, end, price|null}]
    * extras  = [{key, name, price, unit, guestPrices: [{upTo, price}]}]
+   * minStayRules = [{objectId|null, name, start, end, minNights}] — періоди з особливим мінімумом ночей
    */
-  function make(config, objects, periods, extras) {
+  function make(config, objects, periods, extras, minStayRules) {
     var C = config;
+    minStayRules = minStayRules || [];
     periods = periods || [];
     extras = extras || [];
     function obj(id) { return objects[String(id)]; }
@@ -35,16 +45,61 @@
       var o = obj(id);
       return Math.min.apply(null, [o.price].concat(o.tiers.map(function (t) { return t.price; }), o.weekendPrice ? [o.weekendPrice] : []));
     }
-    /** Мінімум ночей для бронювання checkIn → checkOut: якщо є ніч вихідних — не менше weekendMinNights. */
-    function minNightsFor(id, checkIn, checkOut) {
-      var o = obj(id), base = o.minNights || 1, weekend = o.weekendMinNights || 0;
-      if (weekend > base && nightsBetween(checkIn, checkOut).some(isWeekend)) return weekend;
-      return base;
+    /**
+     * Мінімум ночей для бронювання checkIn → checkOut і чому він такий (копія pricing.min_stay):
+     * найбільший зі звичайного, на вихідні (якщо є ніч пт / сб) і періодів з особливим мінімумом.
+     */
+    function minStay(id, checkIn, checkOut) {
+      var o = obj(id), nights = nightsBetween(checkIn, checkOut);
+      var best = { required: o.minNights || 1, kind: 'base', rule: null, night: null };
+      var weekend = o.weekendMinNights || 0;
+      if (weekend > best.required && nights.some(isWeekend)) best = { required: weekend, kind: 'weekend', rule: null, night: null };
+      minStayRules.forEach(function (r) {
+        if ((r.objectId !== null && r.objectId !== +id) || r.minNights <= best.required) return;
+        for (var i = 0; i < nights.length; i++) {
+          if (r.start <= nights[i] && nights[i] <= r.end) { best = { required: r.minNights, kind: 'rule', rule: r, night: nights[i] }; return; }
+        }
+      });
+      return best;
+    }
+    function minNightsFor(id, checkIn, checkOut) { return minStay(id, checkIn, checkOut).required; }
+    function stayOk(id, checkIn, checkOut) { return checkOut > checkIn && nightsBetween(checkIn, checkOut).length >= minNightsFor(id, checkIn, checkOut); }
+    /** Найраніший дозволений виїзд після checkIn (не пізніше limit) або null. Дозволені дати можуть іти з пропусками:
+     *  29.12 → 31.12 можна, → 01.01 ні (новорічна ніч, мінімум 5), → 03.01 знову можна. */
+    function earliestCheckout(id, checkIn, limit) {
+      for (var d = addDays(checkIn, 1), i = 0; i < 400 && (!limit || d <= limit); d = addDays(d, 1), i++) {
+        if (stayOk(id, checkIn, d)) return d;
+      }
+      return null;
     }
     /** Найменша можлива кількість ночей від заїзду checkIn (для підказок у календарі). */
     function minNightsFrom(id, checkIn) {
-      var base = obj(id).minNights || 1;
-      return minNightsFor(id, checkIn, addDays(checkIn, base));
+      var out = earliestCheckout(id, checkIn, null);
+      return out ? nightsBetween(checkIn, out).length : obj(id).minNights || 1;
+    }
+    function rulePhrase(r) { return r.name ? 'на ' + r.name : 'з ' + ddmm(r.start) + ' до ' + ddmm(addDays(r.end, 1)); }
+    /** Текст біля форми (копія pricing.min_stay_note); '' — обмежень немає. */
+    function minStayNote(id, today) {
+      var o = obj(id), base = o.minNights || 1, parts = [], weekend = o.weekendMinNights || 0;
+      if (weekend > base) parts.push('на вихідні — ' + weekend + ' ' + nightsWord(weekend));
+      minStayRules.filter(function (r) { return (r.objectId === null || r.objectId === +id) && r.end >= today && r.minNights > base; })
+        .sort(function (a, b) { return a.start < b.start ? -1 : a.start > b.start ? 1 : a.end < b.end ? -1 : a.end > b.end ? 1 : 0; })
+        .forEach(function (r) { parts.push(rulePhrase(r) + ' — ' + r.minNights + ' ' + nightsWord(r.minNights)); });
+      if (base <= 1 && !parts.length) return '';
+      return ['Мінімальний термін бронювання — ' + base + ' ' + nightsWord(base)].concat(parts).join(', ') + '.';
+    }
+    /** Пояснення гостю (копія pricing.min_stay_message). */
+    function minStayMessage(stay, nights) {
+      var need = stay.required, head;
+      if (stay.kind === 'rule') {
+        var ph = rulePhrase(stay.rule);
+        head = ph.charAt(0).toUpperCase() + ph.slice(1) + ' мінімальний термін бронювання — ' + need + ' ' + nightsWord(need) +
+          ': ваші дати включають ніч ' + ddmm(stay.night) + '→' + ddmm(addDays(stay.night, 1)) + '.';
+      } else if (stay.kind === 'weekend') {
+        head = "Якщо серед ночей є п'ятниця чи субота, мінімальний термін бронювання — " + need + ' ' + nightsWord(need) + '.';
+      } else head = 'Мінімальний термін бронювання — ' + need + ' ' + nightsWord(need) + '.';
+      var more = need - nights;
+      return head + ' Ви обрали ' + nights + ' ' + nightsWord(nights) + ' — додайте ще ' + more + ' ' + nightsWord(more) + ' або оберіть інші дати.';
     }
     function periodFor(id, iso) {
       var general = null;
@@ -121,7 +176,8 @@
     }
 
     return { CONFIG: C, objects: objects, extras: extras, obj: obj, quote: quote, rateFor: rateFor,
-      minPrice: minPrice, minNightsFor: minNightsFor, minNightsFrom: minNightsFrom, periodFor: periodFor, dayPrice: dayPrice, checkoutLimit: checkoutLimit,
+      minPrice: minPrice, minNightsFor: minNightsFor, minNightsFrom: minNightsFrom,
+      minStay: minStay, stayOk: stayOk, earliestCheckout: earliestCheckout, minStayNote: minStayNote, minStayMessage: minStayMessage, periodFor: periodFor, dayPrice: dayPrice, checkoutLimit: checkoutLimit,
       extraUnitPrice: extraUnitPrice, extraQuantity: extraQuantity };
   }
 
@@ -130,6 +186,6 @@
 
   window.FHPricing = {
     make: make, isWeekend: isWeekend, toDate: toDate, toISO: toISO, addDays: addDays, nightsBetween: nightsBetween,
-    formatUAH: formatUAH, shortPrice: shortPrice
+    formatUAH: formatUAH, shortPrice: shortPrice, nightsWord: nightsWord
   };
 })();

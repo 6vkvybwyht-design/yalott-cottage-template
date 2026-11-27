@@ -42,6 +42,8 @@
       },
       savePeriod: function (p) { return request('POST', '/admin/api/period', p); },
       deletePeriod: function (id) { return request('POST', '/admin/api/period-delete', { id: id }); },
+      saveMinStay: function (r) { return request('POST', '/admin/api/min-stay', r); },
+      deleteMinStay: function (id) { return request('POST', '/admin/api/min-stay-delete', { id: id }); },
       telegramTest: function () { return request('POST', '/admin/api/telegram-test'); }
     }
   };

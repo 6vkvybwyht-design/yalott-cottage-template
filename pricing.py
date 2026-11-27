@@ -11,6 +11,9 @@
   • Вихідні (необов'язково): weekendPrice — ціна ночі з п'ятниці на суботу й із суботи на неділю
     (замість базової й замість знижки за тривалість; сезон важливіший). weekendMinNights — мінімум ночей,
     якщо серед ночей бронювання є ніч п'ятниці чи суботи. Порожньо (None) — як у будні.
+  • Мінімальний термін (min_stay): найбільший із minNights об'єкта, weekendMinNights (якщо є ніч пт / сб)
+    і minNights періодів з особливим мінімумом (таблиця min_stay_rules, напр. Новий рік — 5 ночей),
+    якщо бронювання включає хоч одну ніч такого періоду.
   • Сезон (таблиця periods): price задано — на ці ночі діє вона (бронь може перетинати межу сезону,
     кожна ніч рахується за своєю ціною); price порожня — «ціна за домовленістю», сума не рахується.
     Сезон конкретного об'єкта має пріоритет над сезоном «для всіх».
@@ -47,13 +50,91 @@ def is_weekend(iso):
     return _d(iso).weekday() in WEEKEND_NIGHTS
 
 
-def min_nights_for(obj, check_in, check_out):
-    """Мінімум ночей для саме цього бронювання: звичайний, а якщо є ніч вихідних — не менше weekendMinNights."""
-    base = int(obj.get("minNights") or 1)
+def nights_word(n):
+    n = abs(int(n))
+    if n % 10 == 1 and n % 100 != 11:
+        return "ніч"
+    if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
+        return "ночі"
+    return "ночей"
+
+
+def _ddmm(iso):
+    return f"{iso[8:10]}.{iso[5:7]}"
+
+
+def min_stay(obj, rules, check_in, check_out):
+    """Мінімум ночей для саме цього бронювання і чому він такий.
+
+    Найбільший із: звичайного мінімуму об'єкта (minNights); мінімуму на вихідні (weekendMinNights),
+    якщо серед ночей є ніч пт чи сб; мінімуму кожного періоду з rules (таблиця min_stay_rules:
+    {"objectId" | None — для всіх, "name", "start", "end" — перша й остання ніч включно, "minNights"}),
+    якщо бронювання включає хоч одну ніч періоду.
+    Повертає {"required", "kind": "base" | "weekend" | "rule", "rule", "night"} (night — перша ніч періоду в бронюванні).
+    """
+    nights = nights_between(check_in, check_out)
+    best = {"required": int(obj.get("minNights") or 1), "kind": "base", "rule": None, "night": None}
     weekend = int(obj.get("weekendMinNights") or 0)
-    if weekend > base and any(is_weekend(n) for n in nights_between(check_in, check_out)):
-        return weekend
-    return base
+    if weekend > best["required"] and any(is_weekend(n) for n in nights):
+        best = {"required": weekend, "kind": "weekend", "rule": None, "night": None}
+    for r in rules or ():
+        if r.get("objectId") not in (None, obj["id"]) or int(r["minNights"]) <= best["required"]:
+            continue
+        hit = next((n for n in nights if r["start"] <= n <= r["end"]), None)
+        if hit:
+            best = {"required": int(r["minNights"]), "kind": "rule", "rule": r, "night": hit}
+    return best
+
+
+def min_nights_for(obj, check_in, check_out, rules=()):
+    """Мінімум ночей для саме цього бронювання (див. min_stay)."""
+    return min_stay(obj, rules, check_in, check_out)["required"]
+
+
+def rule_phrase(rule):
+    """«на Новий рік» або «з 31.12 до 02.01» (до — день виїзду після останньої ночі)."""
+    if rule.get("name"):
+        return "на " + rule["name"]
+    after = (_d(rule["end"]) + timedelta(days=1)).isoformat()
+    return f"з {_ddmm(rule['start'])} до {_ddmm(after)}"
+
+
+def applicable_rules(obj, rules, today):
+    """Періоди, що стосуються об'єкта й ще не минули, з мінімумом більшим за звичайний — за датою."""
+    base = int(obj.get("minNights") or 1)
+    return sorted((r for r in rules or () if r.get("objectId") in (None, obj["id"]) and r["end"] >= today
+                   and int(r["minNights"]) > base), key=lambda r: (r["start"], r["end"]))
+
+
+def min_stay_note(obj, rules, today):
+    """Текст біля форми: «Мінімальний термін бронювання — 2 ночі, на вихідні — 3 ночі, на Новий рік — 5 ночей.»
+    Порожньо, якщо обмежень немає (мінімум 1 ніч і немає особливих періодів)."""
+    base = int(obj.get("minNights") or 1)
+    parts = []
+    weekend = int(obj.get("weekendMinNights") or 0)
+    if weekend > base:
+        parts.append(f"на вихідні — {weekend} {nights_word(weekend)}")
+    for r in applicable_rules(obj, rules, today):
+        parts.append(f"{rule_phrase(r)} — {r['minNights']} {nights_word(r['minNights'])}")
+    if base <= 1 and not parts:
+        return ""
+    return ", ".join([f"Мінімальний термін бронювання — {base} {nights_word(base)}"] + parts) + "."
+
+
+def min_stay_message(stay, nights):
+    """Пояснення гостю, скільки ночей потрібно, коли обрано замало."""
+    need = stay["required"]
+    if stay["kind"] == "rule":
+        r, night = stay["rule"], stay["night"]
+        after = (_d(night) + timedelta(days=1)).isoformat()
+        head = (f"{rule_phrase(r)[0].upper()}{rule_phrase(r)[1:]} мінімальний термін бронювання — {need} {nights_word(need)}: "
+                f"ваші дати включають ніч {_ddmm(night)}→{_ddmm(after)}.")
+    elif stay["kind"] == "weekend":
+        head = (f"Якщо серед ночей є п'ятниця чи субота, мінімальний термін бронювання — {need} {nights_word(need)}.")
+    else:
+        head = f"Мінімальний термін бронювання — {need} {nights_word(need)}."
+    more = need - nights
+    return f"{head} Ви обрали {nights} {nights_word(nights)} — додайте ще {more} {nights_word(more)} або оберіть інші дати."
 
 
 def rate_for(obj, nights):

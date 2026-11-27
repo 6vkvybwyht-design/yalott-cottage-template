@@ -1,11 +1,12 @@
 """Адмінка власника (/admin): заявки по кожному об'єкту, календар зайнятості із закриттям ночей,
 ціни й параметри кожного об'єкта (ціна за ніч, доплата за гостей, мінімум ночей, знижки за тривалість),
-сезони, ціни додаткових послуг, тестове сповіщення в Telegram."""
+сезони, періоди з особливим мінімумом ночей (свята), ціни додаткових послуг, тестове сповіщення в Telegram."""
 
 import html
 import logging
 import re
 import secrets
+from datetime import date
 from functools import wraps
 
 from flask import (Blueprint, current_app, flash, jsonify, redirect, render_template, request,
@@ -302,6 +303,52 @@ def period_delete():
         db_.delete_period(db_.get_db(), int(body.get("id")))
     except (TypeError, ValueError):
         return jsonify(ok=False, error="Некоректний сезон"), 400
+    return jsonify(ok=True)
+
+
+@bp.post("/api/min-stay")
+@api_required
+def min_stay_save():
+    """Період з особливим мінімумом ночей (напр. Новий рік — 5): для одного об'єкта чи всіх.
+    Звичайний мінімум кожного об'єкта — поле «Мінімум ночей» у його цінах (/api/object-prices)."""
+    body = request.get_json(silent=True) or {}
+    try:
+        start, end = body.get("start"), body.get("end")
+        if not (isinstance(start, str) and DATE_RE.match(start) and isinstance(end, str) and DATE_RE.match(end)):
+            raise db_.BookingError("Вкажіть першу й останню ніч періоду")
+        try:
+            date.fromisoformat(start), date.fromisoformat(end)
+        except ValueError:
+            raise db_.BookingError("Вкажіть першу й останню ніч періоду")
+        if end < start:
+            raise db_.BookingError("Остання ніч раніше за першу")
+        nights = body.get("minNights")
+        if isinstance(nights, bool) or isinstance(nights, float) and not nights.is_integer():
+            raise db_.BookingError("Мінімум ночей: потрібне ціле число")
+        n = _number({"n": nights}, "n", 1, 60, "Мінімум ночей")
+        if n is None:
+            raise db_.BookingError("Мінімум ночей: вкажіть число від 1 до 60")
+        object_id = None if body.get("objectId") in (None, "", "all", 0) else _object_id(body.get("objectId"))
+        data = {"objectId": object_id, "name": security.clean_text(body.get("name"), 40),
+                "start": start, "end": end, "minNights": n}
+        rule_id = body.get("id")
+        rule_id = int(rule_id) if rule_id not in (None, "") else None
+        db_.save_min_stay_rule(db_.get_db(), data, rule_id)
+    except db_.BookingError as e:
+        return _error(e)
+    except (TypeError, ValueError):
+        return jsonify(ok=False, error="Некоректний період"), 400
+    return jsonify(ok=True)
+
+
+@bp.post("/api/min-stay-delete")
+@api_required
+def min_stay_delete():
+    body = request.get_json(silent=True) or {}
+    try:
+        db_.delete_min_stay_rule(db_.get_db(), int(body.get("id")))
+    except (TypeError, ValueError):
+        return jsonify(ok=False, error="Некоректний період"), 400
     return jsonify(ok=True)
 
 

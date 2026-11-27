@@ -33,6 +33,20 @@ CREATE TABLE IF NOT EXISTS periods (
     CHECK (end_date >= start_date)
 );
 
+-- Періоди з особливим мінімумом ночей (напр. Новий рік — 5 ночей). Якщо бронювання включає хоч одну ніч
+-- періоду, потрібно щонайменше min_nights ночей. object_id NULL — для всіх об'єктів. Звичайний мінімум —
+-- objects.min_nights. Початкові — з розділу min_stay конфігу (seed, один раз), далі їх змінює адмінка.
+-- Таблиця тільки додається — наявні дані не змінюються.
+CREATE TABLE IF NOT EXISTS min_stay_rules (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    object_id   INTEGER REFERENCES objects(id),
+    name        TEXT    NOT NULL DEFAULT '',
+    start_date  TEXT    NOT NULL,              -- YYYY-MM-DD, перша ніч
+    end_date    TEXT    NOT NULL,              -- YYYY-MM-DD, остання ніч (включно)
+    min_nights  INTEGER NOT NULL CHECK (min_nights BETWEEN 1 AND 60),
+    CHECK (end_date >= start_date)
+);
+
 -- Додаткові послуги: ціна й ціни залежно від кількості гостей. Назви й описи — у конфігу.
 CREATE TABLE IF NOT EXISTS extras (
     key           TEXT    PRIMARY KEY,
@@ -106,7 +120,7 @@ CREATE TABLE IF NOT EXISTS admin_users (
 -- Журнал seed: що з конфігу вже було записано в базу. Кожен запис заливається РІВНО ОДИН раз,
 -- тому повторний seed не повертає видалений в адмінці сезон і не перезаписує змінену ціну.
 CREATE TABLE IF NOT EXISTS seed_log (
-    kind       TEXT NOT NULL,     -- object | extra | season | demo
+    kind       TEXT NOT NULL,     -- object | extra | season | min_stay | demo
     key        TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (kind, key)
